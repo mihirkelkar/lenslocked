@@ -11,6 +11,7 @@ import (
 
 var homeView *views.View
 var contactView *views.View
+var faqView *views.View
 
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
@@ -27,9 +28,11 @@ func contactUs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func faq(w http.ResponseWriter, r *http.Request) {
+func faqPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
-	fmt.Fprint(w, "What is this site used for?\nFor photographers")
+	if err := faqView.Render(w, nil); err != nil {
+		panic(err)
+	}
 }
 
 func errorMessage(w http.ResponseWriter, r *http.Request) {
@@ -42,11 +45,12 @@ func main() {
 	//we're assigning to a global here. So no :=
 	homeView = views.NewView("bootstrap", "views/home.gohtml")
 	contactView = views.NewView("bootstrap", "views/contact.gohtml")
+	faqView = views.NewView("bootstrap", "views/faq.gohtml")
 
 	r := mux.NewRouter()
 	r.NotFoundHandler = h
 	r.HandleFunc("/", home)
 	r.HandleFunc("/contact", contactUs)
-	r.HandleFunc("/faq", faq)
+	r.HandleFunc("/faq", faqPage)
 	log.Fatal(http.ListenAndServe(":3000", r))
 }
