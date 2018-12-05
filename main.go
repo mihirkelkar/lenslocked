@@ -14,6 +14,7 @@ var homeView *views.View
 var contactView *views.View
 var faqView *views.View
 
+/*
 func home(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
 	if err := homeView.Render(w, nil); err != nil {
@@ -28,6 +29,7 @@ func contactUs(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 }
+*/
 
 func faqPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
@@ -44,15 +46,21 @@ func errorMessage(w http.ResponseWriter, r *http.Request) {
 func main() {
 	var h http.Handler = http.HandlerFunc(errorMessage)
 	//we're assigning to a global here. So no :=
-	homeView = views.NewView("bootstrap", "views/home.gohtml")
-	contactView = views.NewView("bootstrap", "views/contact.gohtml")
+
+	// The handler functions for home and contact are not doing much.
+	//So instead we created a common controller for static pages
+	// Infact, they are not doing anything other than calling an empty render
+	// so we're going to change the view to implement the router type by writing
+	// the serverHTTP method
+	staticC := controllers.NewStatic()
+
 	faqView = views.NewView("bootstrap", "views/faq.gohtml")
 	var userC = controllers.NewUsers()
 
 	r := mux.NewRouter()
 	r.NotFoundHandler = h
-	r.HandleFunc("/", home).Methods("GET")
-	r.HandleFunc("/contact", contactUs).Methods("GET")
+	r.Handle("/", staticC.Home).Methods("GET")
+	r.Handle("/contact", staticC.Contact).Methods("GET")
 	r.HandleFunc("/faq", faqPage).Methods("GET")
 
 	//All we have done here is moved the part where we assign the view

@@ -12,6 +12,11 @@ type Users struct {
 	NewView *views.View
 }
 
+type SignUpForm struct {
+	Email    string `schema: "email"`
+	Password string `schema: "password"`
+}
+
 //NewUsers Creates a new user that has its NewView set to the sign-up page
 func NewUsers() *Users {
 	return &Users{
@@ -29,5 +34,12 @@ func (u *Users) New(w http.ResponseWriter, r *http.Request) {
 
 //POST /signup
 func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, "This is a temporary placeholder")
+	form := SignUpForm{}
+	//this method is present in the helpers.go file
+	if err := ParseForm(r, &form); err != nil {
+		panic(err)
+	}
+	fmt.Fprintln(w, form.Email)
+	fmt.Fprintln(w, form.Password)
+
 }

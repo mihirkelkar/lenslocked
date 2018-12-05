@@ -39,3 +39,11 @@ func NewView(layout string, files ...string) *View {
 func (v *View) Render(w http.ResponseWriter, data interface{}) error {
 	return v.Template.ExecuteTemplate(w, v.Layout, data)
 }
+
+//This function converts the view to fit a handler interfact
+// A view can now directly be used to serve static pages
+func (v *View) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := v.Template.ExecuteTemplate(w, v.Layout, nil); err != nil {
+		panic(err)
+	}
+}
