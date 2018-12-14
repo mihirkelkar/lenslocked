@@ -53,19 +53,19 @@ func main() {
 	// so we're going to change the view to implement the router type by writing
 	// the serverHTTP method
 	staticC := controllers.NewStatic()
-
-	faqView = views.NewView("bootstrap", "views/faq.gohtml")
 	var userC = controllers.NewUsers()
+	var gallC = controllers.NewGallery()
 
 	r := mux.NewRouter()
 	r.NotFoundHandler = h
 	r.Handle("/", staticC.Home).Methods("GET")
 	r.Handle("/contact", staticC.Contact).Methods("GET")
-	r.HandleFunc("/faq", faqPage).Methods("GET")
+	r.Handle("/faq", staticC.Faq).Methods("GET")
 
 	//All we have done here is moved the part where we assign the view
 	// and the actual handler function to the user conroller. Nothing fancy
 	r.HandleFunc("/signup", userC.New).Methods("GET")
+	r.HandleFunc("/galleries/new", gallC.New).Methods("GET")
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":3000", r))
