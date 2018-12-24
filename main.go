@@ -72,7 +72,7 @@ func main() {
 		panic(err)
 	}
 	defer us.Close()
-	us.DestructiveReset()
+	us.AutoMigrate()
 
 	staticC := controllers.NewStatic()
 	//We pass the user service (relatd to the model) to the user controller
