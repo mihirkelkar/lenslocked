@@ -7,12 +7,21 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mihirkelkar/lenslocked.com/controllers"
+	"github.com/mihirkelkar/lenslocked.com/models"
 	"github.com/mihirkelkar/lenslocked.com/views"
 )
 
 var homeView *views.View
 var contactView *views.View
 var faqView *views.View
+
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "postgres"
+	password = ""
+	dbname   = "lenslocked_dev"
+)
 
 /*
 func home(w http.ResponseWriter, r *http.Request) {
@@ -30,14 +39,14 @@ func contactUs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 */
-
+/*
 func faqPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
 	if err := faqView.Render(w, nil); err != nil {
 		panic(err)
 	}
 }
-
+*/
 func errorMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	fmt.Fprint(w, "The page you requested could not be found")
@@ -52,8 +61,22 @@ func main() {
 	// Infact, they are not doing anything other than calling an empty render
 	// so we're going to change the view to implement the router type by writing
 	// the serverHTTP method
+
+	//Empty password parameter causes huge issues here.
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
+		"dbname=%s sslmode=disable", host, port, user, dbname)
+
+	//create a user service right away
+	us, err := models.NewUserService(psqlInfo)
+	if err != nil {
+		panic(err)
+	}
+	defer us.Close()
+	us.DestructiveReset()
+
 	staticC := controllers.NewStatic()
-	var userC = controllers.NewUsers()
+	//We pass the user service (relatd to the model) to the user controller
+	var userC = controllers.NewUsers(us)
 	var gallC = controllers.NewGallery()
 
 	r := mux.NewRouter()
