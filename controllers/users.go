@@ -18,6 +18,7 @@ type SignUpForm struct {
 	Name     string `schema: "name"`
 	Email    string `schema: "email"`
 	Password string `schema: "password"`
+	Age      int    `schema: "age"`
 }
 
 //NewUsers Creates a new user that has its NewView set to the sign-up page
@@ -47,6 +48,7 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	user := models.User{
 		Name:  form.Name,
 		Email: form.Email,
+		Age:   form.Age,
 	}
 
 	if err := u.us.Create(&user); err != nil {
@@ -57,5 +59,6 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, form.Email)
 	fmt.Fprintln(w, form.Password)
 	fmt.Fprintln(w, form.Name)
+	fmt.Fprintln(w, form.Age)
 
 }
