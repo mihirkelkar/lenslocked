@@ -5,6 +5,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -14,9 +15,11 @@ var (
 
 type User struct {
 	gorm.Model
-	Name  string
-	Email string `gorm:"not null;unique_index"`
-	Age   int
+	Name         string
+	Email        string `gorm:"not null;unique_index"`
+	Password     string `gorm:"-"` //The "-" after password indicates that this will not be added to the database
+	PasswordHash string
+	Age          int
 }
 
 type UserService struct {
@@ -66,6 +69,30 @@ func (u *UserService) ByEmail(email string) (*User, error) {
 	}
 }
 
+func (u *UserService) ByAge(age int) (*User, error) {
+	var user User
+	err := u.db.Where("age = ?", age).First(&user).Error
+	switch err {
+	case nil:
+		return &user, nil
+	case gorm.ErrRecordNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, err
+	}
+}
+
+func (u *UserService) InAgeRange(startage int, endage int) ([]User, error) {
+	var users []User
+	err := u.db.Where("age >= ? and age < ?", startage, endage).Find(&users).Error
+	switch err {
+	case nil:
+		return users, nil
+	default:
+		return nil, err
+	}
+}
+
 //AutoMigrate : Auto-Migrates the user table and makes new column additions
 // and updates
 func (u *UserService) AutoMigrate() error {
@@ -89,7 +116,16 @@ func (u *UserService) DestructiveReset() error {
 }
 
 func (u *UserService) Create(user *User) error {
-	err := u.db.Create(user).Error
+	var userPwPepper = "N0thingF0rTheSwimB@ck"
+	hashedBytes, err := bcrypt.GenerateFromPassword(
+		[]byte(user.Password+userPwPepper),
+		bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	user.PasswordHash = string(hashedBytes)
+	user.Password = ""
+	err = u.db.Create(user).Error
 	if err != nil {
 		return err
 	}

@@ -88,6 +88,11 @@ func main() {
 	//All we have done here is moved the part where we assign the view
 	// and the actual handler function to the user conroller. Nothing fancy
 	r.HandleFunc("/signup", userC.New).Methods("GET")
+
+	//Notice that we are using the Handle function here and
+	//rendering the LoginView Template as a static template
+	r.Handle("/login", userC.LoginView).Methods("GET")
+	r.HandleFunc("/login", userC.Login).Methods("POST")
 	r.HandleFunc("/galleries/new", gallC.New).Methods("GET")
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 

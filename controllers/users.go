@@ -10,8 +10,9 @@ import (
 
 //Users struct
 type Users struct {
-	NewView *views.View
-	us      *models.UserService
+	NewView   *views.View
+	LoginView *views.View
+	us        *models.UserService
 }
 
 type SignUpForm struct {
@@ -21,15 +22,22 @@ type SignUpForm struct {
 	Age      int    `schema: "age"`
 }
 
+type LoginForm struct {
+	Email    string `schema: "email"`
+	Password string `schema: "password"`
+}
+
 //NewUsers Creates a new user that has its NewView set to the sign-up page
 func NewUsers(us *models.UserService) *Users {
 	return &Users{
-		NewView: views.NewView("bootstrap", "views/users/new.gohtml"),
-		us:      us,
+		NewView:   views.NewView("bootstrap", "views/users/new.gohtml"),
+		LoginView: views.NewView("bootstrap", "views/users/login.gohtml"),
+		us:        us,
 	}
 }
 
 //New A receiver function that is going to act as a handler for the users
+// GET /signup
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
 	if err := u.NewView.Render(w, nil); err != nil {
@@ -46,9 +54,10 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := models.User{
-		Name:  form.Name,
-		Email: form.Email,
-		Age:   form.Age,
+		Name:     form.Name,
+		Email:    form.Email,
+		Age:      form.Age,
+		Password: form.Password,
 	}
 
 	if err := u.us.Create(&user); err != nil {
@@ -57,8 +66,20 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintln(w, form.Email)
-	fmt.Fprintln(w, form.Password)
 	fmt.Fprintln(w, form.Name)
+	fmt.Fprintln(w, user.Password)
 	fmt.Fprintln(w, form.Age)
 
+}
+
+//POST /login
+func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
+	form := LoginForm{}
+
+	if err := ParseForm(r, &form); err != nil {
+		panic(err)
+	}
+
+	fmt.Fprintln(w, form.Email)
+	fmt.Fprintln(w, form.Password)
 }
