@@ -9,9 +9,12 @@ import (
 )
 
 var (
-	ErrNotFound  = errors.New("The user you were looking for was not found")
-	ErrInvalidID = errors.New("The ID you provided is Invalid")
+	ErrNotFound        = errors.New("The user you were looking for was not found")
+	ErrInvalidID       = errors.New("The ID you provided is Invalid")
+	ErrInvalidPassword = errors.New("This username and password combination is not valid")
 )
+
+var userPwPepper = "N0thingF0rTheSwimB@ck"
 
 type User struct {
 	gorm.Model
@@ -116,7 +119,6 @@ func (u *UserService) DestructiveReset() error {
 }
 
 func (u *UserService) Create(user *User) error {
-	var userPwPepper = "N0thingF0rTheSwimB@ck"
 	hashedBytes, err := bcrypt.GenerateFromPassword(
 		[]byte(user.Password+userPwPepper),
 		bcrypt.DefaultCost)
@@ -152,4 +154,20 @@ func (us *UserService) Delete(id uint) error {
 	}
 	user := User{Model: gorm.Model{ID: id}}
 	return us.db.Delete(&user).Error
+}
+
+//Authenticate : Matches the email and password to see if the password is right.
+func (u *UserService) Authenticate(email string, password string) (*User, error) {
+	foundUser, err := u.ByEmail(email)
+	if err != nil {
+		return nil, ErrInvalidPassword
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash),
+		[]byte(password+userPwPepper))
+	switch err {
+	case nil:
+		return foundUser, nil
+	default:
+		return nil, ErrInvalidPassword
+	}
 }

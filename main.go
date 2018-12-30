@@ -93,8 +93,11 @@ func main() {
 	//rendering the LoginView Template as a static template
 	r.Handle("/login", userC.LoginView).Methods("GET")
 	r.HandleFunc("/login", userC.Login).Methods("POST")
+
 	r.HandleFunc("/galleries/new", gallC.New).Methods("GET")
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
+	//test cookie function.
+	r.HandleFunc("/testcookie", userC.TestCookie).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":3000", r))
 }
