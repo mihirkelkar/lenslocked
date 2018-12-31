@@ -5,6 +5,8 @@ import (
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
+	"github.com/mihirkelkar/lenslocked.com/hash"
+	"github.com/mihirkelkar/lenslocked.com/rand"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,6 +18,8 @@ var (
 
 var userPwPepper = "N0thingF0rTheSwimB@ck"
 
+var secretkey = "ThisIsNotTheSecretKey"
+
 type User struct {
 	gorm.Model
 	Name         string
@@ -23,10 +27,13 @@ type User struct {
 	Password     string `gorm:"-"` //The "-" after password indicates that this will not be added to the database
 	PasswordHash string
 	Age          int
+	Remember     string `gorm:"-"`
+	RememberHash string
 }
 
 type UserService struct {
-	db *gorm.DB
+	db   *gorm.DB
+	hmac hash.HMAC
 }
 
 //NewUserService : Creates a UserService instane with an open connection
@@ -35,10 +42,13 @@ func NewUserService(connectionstring string) (*UserService, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	db.LogMode(true)
 	return &UserService{
-		db: db,
+		db:   db,
+		hmac: hash.NewHMAC(secretkey),
 	}, nil
+
 }
 
 //Close : Closes the connection to the gorm database
@@ -96,6 +106,16 @@ func (u *UserService) InAgeRange(startage int, endage int) ([]User, error) {
 	}
 }
 
+func (u *UserService) ByRememberToken(token string) (*User, error) {
+	var user User
+	remtoken := u.hmac.Hash(token)
+	err := u.db.Where("remember_hash = ?", remtoken).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 //AutoMigrate : Auto-Migrates the user table and makes new column additions
 // and updates
 func (u *UserService) AutoMigrate() error {
@@ -125,6 +145,14 @@ func (u *UserService) Create(user *User) error {
 	if err != nil {
 		return err
 	}
+	if user.Remember == "" {
+		user.Remember, err = rand.String(32)
+		if err != nil {
+			return err
+		}
+		user.RememberHash = u.hmac.Hash(user.Remember)
+	}
+
 	user.PasswordHash = string(hashedBytes)
 	user.Password = ""
 	err = u.db.Create(user).Error
@@ -137,6 +165,9 @@ func (u *UserService) Create(user *User) error {
 //UpdateUser : Updates a given user. Updates all the fiels of the user
 //depending on the struct you provide.
 func (u *UserService) UpdateUser(user *User) error {
+	if user.Remember != "" {
+		user.RememberHash = u.hmac.Hash(user.Remember)
+	}
 	err := u.db.Save(user).Error
 	if err != nil {
 		return err
