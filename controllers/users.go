@@ -76,7 +76,7 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Redirect to the cookie test page to test the cookie
-	http.Redirect(w, r, "/cookietest", http.StatusFound)
+	http.Redirect(w, r, "/testcookie", http.StatusFound)
 
 }
 
@@ -102,7 +102,7 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Redirect to the cookie test page to test the cookie
-	http.Redirect(w, r, "/cookietest", http.StatusFound)
+	http.Redirect(w, r, "/testcookie", http.StatusFound)
 }
 
 // signIn is used to sign the given user in via cookies.
@@ -122,17 +122,25 @@ func (u *Users) SignIn(w http.ResponseWriter, user *models.User) error {
 	cookie := http.Cookie{
 		Name:  "remember_token",
 		Value: user.RememberHash,
+		//Set HttpOnly to stop cross site scripting
+		HttpOnly: true,
 	}
+
 	http.SetCookie(w, &cookie)
 	return nil
 }
 
 // testcookie GET request
 func (u *Users) TestCookie(w http.ResponseWriter, r *http.Request) {
+	var user *models.User
 	cookie, err := r.Cookie("remember_token")
-	fmt.Println(err)
-	user, err := u.us.ByRememberToken(cookie.Value)
-	fmt.Println(user)
-	fmt.Println(err)
+	if err == nil {
+		user, err = u.us.ByRememberHash(cookie.Value)
+	}
+	if err != nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
 	fmt.Fprintln(w, user)
 }

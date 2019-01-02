@@ -116,6 +116,15 @@ func (u *UserService) ByRememberToken(token string) (*User, error) {
 	return &user, nil
 }
 
+func (u *UserService) ByRememberHash(hash string) (*User, error) {
+	var user User
+	err := u.db.Where("remember_hash = ?", hash).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 //AutoMigrate : Auto-Migrates the user table and makes new column additions
 // and updates
 func (u *UserService) AutoMigrate() error {
