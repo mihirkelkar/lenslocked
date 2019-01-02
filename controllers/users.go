@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/mihirkelkar/lenslocked.com/models"
+	"github.com/mihirkelkar/lenslocked.com/rand"
 	"github.com/mihirkelkar/lenslocked.com/views"
 )
 
@@ -65,10 +66,17 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintln(w, form.Email)
-	fmt.Fprintln(w, form.Name)
-	fmt.Fprintln(w, user.Password)
-	fmt.Fprintln(w, form.Age)
+	//after the user is created, sign the user in
+	err := u.SignIn(w, &user)
+
+	//Temporary Code
+	if err != nil {
+		// Temporarily render the error message for debugging
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Redirect to the cookie test page to test the cookie
+	http.Redirect(w, r, "/cookietest", http.StatusFound)
 
 }
 
@@ -85,18 +93,46 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, err)
 		return
 	}
-
-	cookie := http.Cookie{Name: "email",
-		Value: user.Email}
-	http.SetCookie(w, &cookie)
-	fmt.Fprintln(w, user)
-}
-
-func (u *Users) TestCookie(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("email")
+	//sign the user in and set a cookie.
+	//Here, user is already a pointer to user.models
+	err = u.SignIn(w, user)
 	if err != nil {
+		// Temporarily render the error message for debugging
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintln(w, cookie)
+	// Redirect to the cookie test page to test the cookie
+	http.Redirect(w, r, "/cookietest", http.StatusFound)
+}
+
+// signIn is used to sign the given user in via cookies.
+// First if the remember token for a user is not null,
+// it generates a remember hash and assigns a cookie
+func (u *Users) SignIn(w http.ResponseWriter, user *models.User) error {
+	//if user does not have a remember token, then generate one and update
+	//the user
+	if user.Remember == "" {
+		user.Remember, _ = rand.String(32)
+		err := u.us.UpdateUser(user)
+		if err != nil {
+			return err
+		}
+	}
+	//assign the remember token to the cookie
+	cookie := http.Cookie{
+		Name:  "remember_token",
+		Value: user.RememberHash,
+	}
+	http.SetCookie(w, &cookie)
+	return nil
+}
+
+// testcookie GET request
+func (u *Users) TestCookie(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie("remember_token")
+	fmt.Println(err)
+	user, err := u.us.ByRememberToken(cookie.Value)
+	fmt.Println(user)
+	fmt.Println(err)
+	fmt.Fprintln(w, user)
 }

@@ -188,6 +188,7 @@ func (us *UserService) Delete(id uint) error {
 }
 
 //Authenticate : Matches the email and password to see if the password is right.
+//Returns the user information
 func (u *UserService) Authenticate(email string, password string) (*User, error) {
 	foundUser, err := u.ByEmail(email)
 	if err != nil {
