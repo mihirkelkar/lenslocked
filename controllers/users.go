@@ -13,7 +13,7 @@ import (
 type Users struct {
 	NewView   *views.View
 	LoginView *views.View
-	us        *models.UserService
+	us        models.UserService
 }
 
 type SignUpForm struct {
@@ -29,7 +29,7 @@ type LoginForm struct {
 }
 
 //NewUsers Creates a new user that has its NewView set to the sign-up page
-func NewUsers(us *models.UserService) *Users {
+func NewUsers(us models.UserService) *Users {
 	return &Users{
 		NewView:   views.NewView("bootstrap", "views/users/new.gohtml"),
 		LoginView: views.NewView("bootstrap", "views/users/login.gohtml"),
@@ -113,7 +113,7 @@ func (u *Users) SignIn(w http.ResponseWriter, user *models.User) error {
 	//the user
 	if user.Remember == "" {
 		user.Remember, _ = rand.String(32)
-		err := u.us.UpdateUser(user)
+		err := u.us.Update(user)
 		if err != nil {
 			return err
 		}
