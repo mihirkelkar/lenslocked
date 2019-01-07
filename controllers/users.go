@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/mihirkelkar/lenslocked.com/models"
-	"github.com/mihirkelkar/lenslocked.com/rand"
 	"github.com/mihirkelkar/lenslocked.com/views"
 )
 
@@ -111,12 +110,9 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 func (u *Users) SignIn(w http.ResponseWriter, user *models.User) error {
 	//if user does not have a remember token, then generate one and update
 	//the user
-	if user.Remember == "" {
-		user.Remember, _ = rand.String(32)
-		err := u.us.Update(user)
-		if err != nil {
-			return err
-		}
+	err := u.us.Update(user)
+	if err != nil {
+		return err
 	}
 	//assign the remember token to the cookie
 	cookie := http.Cookie{
@@ -138,7 +134,7 @@ func (u *Users) TestCookie(w http.ResponseWriter, r *http.Request) {
 		user, err = u.us.ByRememberHash(cookie.Value)
 	}
 	if err != nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 

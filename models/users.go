@@ -38,8 +38,8 @@ type UserDB interface {
 	//Methods for querying single user.
 	ByID(id int) (*User, error)
 	ByEmail(email string) (*User, error)
-	ByRememberHash(hashtoken string) (*User, error)
-	ByRememberToken(token string) (*User, error)
+	ByRemember(token string) (*User, error)
+	ByRememberHash(hash string) (*User, error)
 	//Methods for Alterting Users
 	Create(user *User) error
 	Update(user *User) error
@@ -104,6 +104,25 @@ type userValidator struct {
 //for UserService
 type userService struct {
 	UserDB
+}
+
+//userValFn : is a fuction type. Any function that fits this pattern
+//of accepting user and returning error fits this functon type.
+//An advantage of declaring function types is we can write function to
+//runa  bunch of these successively. Notice the function below.
+type userValFn func(*User) error
+
+//This function accepts one or several functions of type userValFn as
+//varacdic parameters. Then it runs it on the user. If any functions returns
+//a non null value, then it returns a non null error. This can be used to run
+//several validation functions together one after the other on the user object
+func runUserValFns(user *User, fns ...userValFn) error {
+	for _, fn := range fns {
+		if err := fn(user); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //NewUserService : Instantiates a new user service.
@@ -172,19 +191,26 @@ func (u *userGorm) ByEmail(email string) (*User, error) {
 	}
 }
 
-func (uv *userValidator) ByRememberToken(token string) (*User, error) {
-	//query the hmac method in the userGorm
-	remtoken := uv.hmac.Hash(token)
-	user, err := uv.UserDB.ByRememberToken(remtoken)
-	if err != nil {
+func (uv *userValidator) ByRemember(token string) (*User, error) {
+	//query the hmac method in the userGorm. You accept a plain text
+	//remember token and find the user that matches the token.
+
+	var user User
+	user.Remember = token
+	//check validity using the validator functions.
+	if err := runUserValFns(&user, uv.bcryptPassword, uv.rememberHash); err != nil {
 		return nil, err
 	}
-	return user, nil
+	return uv.UserDB.ByRemember(user.RememberHash)
 }
 
-func (u *userGorm) ByRememberToken(token string) (*User, error) {
+func (uv *userValidator) ByRememberHash(hash string) (*User, error) {
+	return uv.UserDB.ByRememberHash(hash)
+}
+
+func (u *userGorm) ByRemember(hash string) (*User, error) {
 	var user User
-	err := u.db.Where("remember_hash = ?", token).First(&user).Error
+	err := u.db.Where("remember_hash = ?", hash).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -222,26 +248,62 @@ func (u *userGorm) DestructiveReset() error {
 	return nil
 }
 
-//Validator code for the Create function that then calls the userGorm create
-func (uv *userValidator) Create(user *User) error {
-	hashedBytes, err := bcrypt.GenerateFromPassword(
-		[]byte(user.Password+userPwPepper),
-		bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	if user.Remember == "" {
-		user.Remember, err = rand.String(32)
+//brcyptPassword : A validator function that can be called to add
+// a salt and pepper to a password and then create a remember hash
+// and returns a user. This implements the function type UserValFn
+//which has been defined above
+func (uv *userValidator) bcryptPassword(user *User) error {
+	//add pepper to user password and return hashed bytes
+	if user.Password != "" {
+		hashedBytes, err := bcrypt.GenerateFromPassword(
+			[]byte(user.Password+userPwPepper),
+			bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
-		user.RememberHash = uv.hmac.Hash(user.Remember)
 		user.PasswordHash = string(hashedBytes)
 		user.Password = ""
 	}
-	err = uv.UserDB.Create(user)
-	return err
+	return nil
+}
 
+//A validaotr function that can be used to hash remember tokens.
+//This function implements the UserValFn function type declared above
+func (uv *userValidator) rememberHash(user *User) error {
+	if user.Remember == "" {
+		return nil
+	}
+	user.RememberHash = uv.hmac.Hash(user.Remember)
+	return nil
+}
+
+//A validator function that sets a remember token if the remember token is empty
+//This also implements the UserValFns function type.
+func (uv *userValidator) setRememberIfUnset(user *User) error {
+	if user.Remember == "" {
+		token, err := rand.String(32)
+		if err != nil {
+			return err
+		}
+		user.Remember = token
+		user.RememberHash = uv.hmac.Hash(user.Remember)
+	}
+	return nil
+}
+
+//Validator code for the Create function that then calls the userGorm create
+func (uv *userValidator) Create(user *User) error {
+	//generate a remember token first if the remember token is empty
+	if user.Remember == "" {
+		user.Remember, _ = rand.String(32)
+	}
+
+	if err := runUserValFns(user, uv.bcryptPassword,
+		uv.setRememberIfUnset,
+		uv.rememberHash); err != nil {
+		return err
+	}
+	return uv.UserDB.Create(user)
 }
 
 func (u *userGorm) Create(user *User) error {
@@ -256,8 +318,10 @@ func (u *userGorm) Create(user *User) error {
 //Checks if the remember token is empty, if so creates a token
 //then calls the userGorm implementation of Update
 func (uv *userValidator) Update(user *User) error {
-	if user.Remember != "" {
-		user.RememberHash = uv.hmac.Hash(user.Remember)
+	if err := runUserValFns(user, uv.bcryptPassword,
+		uv.setRememberIfUnset,
+		uv.rememberHash); err != nil {
+		return err
 	}
 	return uv.UserDB.Update(user)
 }
