@@ -2,6 +2,8 @@ package models
 
 import (
 	"errors"
+	"regexp"
+	"strings"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -14,8 +16,10 @@ var (
 	ErrNotFound        = errors.New("The user you were looking for was not found")
 	ErrInvalidID       = errors.New("The ID you provided is Invalid")
 	ErrInvalidPassword = errors.New("This username and password combination is not valid")
+	ErrEmailRequired   = errors.New("An email needs to be provided")
+	ErrEmailInvalid    = errors.New("This email is invalid")
+	ErrEmailTaken      = errors.New("This email address already has an assocaited account")
 )
-
 var userPwPepper = "N0thingF0rTheSwimB@ck"
 
 var secretkey = "ThisIsNotTheSecretKey"
@@ -87,7 +91,8 @@ type userGorm struct {
 //
 type userValidator struct {
 	UserDB
-	hmac hash.HMAC
+	hmac       hash.HMAC
+	emailregex *regexp.Regexp
 }
 
 //userService :  implements the UserService interface. It has to implement
@@ -135,11 +140,19 @@ func NewUserService(connectionstring string) (UserService, error) {
 	if err != nil {
 		return nil, err
 	}
-	userValidator := &userValidator{UserDB: ug, hmac: hash.NewHMAC(secretkey)}
+	userValidator := newUserValidator(ug, hash.NewHMAC(secretkey))
 	//userValidator implements the UserDB interface for userService
 
 	userService := &userService{UserDB: userValidator}
 	return userService, nil
+}
+
+func newUserValidator(udb UserDB, hmac hash.HMAC) *userValidator {
+	return &userValidator{
+		UserDB:     udb,
+		hmac:       hmac,
+		emailregex: regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,16}$`),
+	}
 }
 
 //newUserGorm : Creates a UserService instane with an open connection
@@ -176,8 +189,21 @@ func (u *userGorm) ByID(id int) (*User, error) {
 	}
 }
 
-//ByEmail has no validation code, so we won't be implementing this for the
-//userValidator
+//ByEmail validator reciever function that normalizes email addresses
+//before doing a lookup
+func (uv *userValidator) ByEmail(email string) (*User, error) {
+	var user User
+	user.Email = email
+	err := runUserValFns(&user,
+		uv.normalizeEmail,
+		uv.emailRequired,
+		uv.validEmail)
+	if err != nil {
+		return nil, err
+	}
+	return uv.UserDB.ByEmail(user.Email)
+}
+
 func (u *userGorm) ByEmail(email string) (*User, error) {
 	var user User
 	err := u.db.Where("email = ?", email).First(&user).Error
@@ -300,7 +326,11 @@ func (uv *userValidator) Create(user *User) error {
 
 	if err := runUserValFns(user, uv.bcryptPassword,
 		uv.setRememberIfUnset,
-		uv.rememberHash); err != nil {
+		uv.rememberHash,
+		uv.normalizeEmail,
+		uv.emailRequired,
+		uv.validEmail,
+		uv.emailAvailable); err != nil {
 		return err
 	}
 	return uv.UserDB.Create(user)
@@ -320,7 +350,11 @@ func (u *userGorm) Create(user *User) error {
 func (uv *userValidator) Update(user *User) error {
 	if err := runUserValFns(user, uv.bcryptPassword,
 		uv.setRememberIfUnset,
-		uv.rememberHash); err != nil {
+		uv.rememberHash,
+		uv.normalizeEmail,
+		uv.emailRequired,
+		uv.validEmail,
+		uv.emailAvailable); err != nil {
 		return err
 	}
 	return uv.UserDB.Update(user)
@@ -357,6 +391,62 @@ func (u *userGorm) Delete(id uint) error {
 	return nil
 }
 
+//normalizeEmails : userValidator functions that normalize email addresses.
+//these functions re still recievers on the UserValidator type
+//and they still implement the userValFn function type so they can be called
+//together.
+func (uv *userValidator) normalizeEmail(user *User) error {
+	//convert email to lower case.
+	user.Email = strings.ToLower(user.Email)
+	//trim trailing and leading white spaces from the user's email.
+	user.Email = strings.TrimSpace(user.Email)
+	return nil
+}
+
+//emailRequired : A reciever functionon the userValidaotr struct that also fits
+//The UserValFn function type.
+func (uv *userValidator) emailRequired(user *User) error {
+	if user.Email == "" {
+		return ErrEmailRequired
+	}
+	return nil
+}
+
+func (uv *userValidator) validEmail(user *User) error {
+	if user.Email == "" {
+		return ErrEmailRequired
+	}
+	if !uv.emailregex.MatchString(user.Email) {
+		return ErrEmailInvalid
+	}
+	return nil
+}
+
+//A validaotr function that checks if a user with an email address exists
+func (uv *userValidator) emailAvailable(user *User) error {
+	existingUser, err := uv.ByEmail(user.Email)
+	//Email address is available if we don't find a user
+	if err == ErrNotFound {
+		return nil
+	}
+
+	//Legitimate lookup error
+	if err != nil {
+		return err
+	}
+
+	// If we get here that means we found a user with this email
+	// address, so we need to see if this is the same user we
+	// are updating, or if we have a conflict.
+	//check if this is the same user trying to update their email
+	if existingUser.ID == user.ID {
+		return nil
+	}
+	//if its not the same user, then someone is trying to get an email
+	//that exists
+	return ErrEmailTaken
+}
+
 //Authenticate : Still Implemented by the UserService
 func (u *userService) Authenticate(email string, password string) (*User, error) {
 	//You can call methods of the interface implementation directly
@@ -364,7 +454,7 @@ func (u *userService) Authenticate(email string, password string) (*User, error)
 	//UserDB implementation of ByEmail
 	foundUser, err := u.ByEmail(email)
 	if err != nil {
-		return nil, ErrInvalidPassword
+		return nil, err
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(foundUser.PasswordHash),
 		[]byte(password+userPwPepper))
@@ -372,6 +462,6 @@ func (u *userService) Authenticate(email string, password string) (*User, error)
 	case nil:
 		return foundUser, nil
 	default:
-		return nil, ErrInvalidPassword
+		return nil, ErrEmailInvalid
 	}
 }
