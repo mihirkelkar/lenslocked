@@ -23,3 +23,12 @@ func String(nBytes int) (string, error) {
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
 }
+
+//NBytes : This function returns the number of Bytes on a base64string
+func NBytes(base64string string) (int, error) {
+	b, err := base64.URLEncoding.DecodeString(base64string)
+	if err == nil {
+		return len(b), nil
+	}
+	return 0, err
+}

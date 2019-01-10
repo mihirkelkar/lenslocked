@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -13,12 +14,15 @@ import (
 )
 
 var (
-	ErrNotFound        = errors.New("The user you were looking for was not found")
-	ErrInvalidID       = errors.New("The ID you provided is Invalid")
-	ErrInvalidPassword = errors.New("This username and password combination is not valid")
-	ErrEmailRequired   = errors.New("An email needs to be provided")
-	ErrEmailInvalid    = errors.New("This email is invalid")
-	ErrEmailTaken      = errors.New("This email address already has an assocaited account")
+	ErrNotFound          = errors.New("The user you were looking for was not found")
+	ErrIDInvalid         = errors.New("The ID you provided is Invalid")
+	ErrPasswordIncorrect = errors.New("This username and password combination is not valid")
+	ErrPasswordTooShort  = errors.New("The password has to contain at-least 8 characters")
+	ErrEmailRequired     = errors.New("An email needs to be provided")
+	ErrEmailInvalid      = errors.New("This email is invalid")
+	ErrEmailTaken        = errors.New("This email address already has an assocaited account")
+	ErrRememberTooShort  = errors.New("This remember token is too short")
+	ErrRememberHashReq   = errors.New("Remember Hash is required")
 )
 var userPwPepper = "N0thingF0rTheSwimB@ck"
 
@@ -324,13 +328,19 @@ func (uv *userValidator) Create(user *User) error {
 		user.Remember, _ = rand.String(32)
 	}
 
-	if err := runUserValFns(user, uv.bcryptPassword,
-		uv.setRememberIfUnset,
-		uv.rememberHash,
-		uv.normalizeEmail,
+	if err := runUserValFns(user,
 		uv.emailRequired,
 		uv.validEmail,
-		uv.emailAvailable); err != nil {
+		uv.emailAvailable,
+		uv.normalizeEmail,
+		uv.passwordRequired,
+		uv.passwordMinLength,
+		uv.bcryptPassword,
+		uv.passwordHashRequired,
+		uv.setRememberIfUnset,
+		uv.rememberMinLength,
+		uv.rememberHash,
+		uv.rememberHashRequired); err != nil {
 		return err
 	}
 	return uv.UserDB.Create(user)
@@ -338,6 +348,7 @@ func (uv *userValidator) Create(user *User) error {
 
 func (u *userGorm) Create(user *User) error {
 	err := u.db.Create(user).Error
+	fmt.Println("User Gorm user created")
 	if err != nil {
 		return err
 	}
@@ -348,13 +359,18 @@ func (u *userGorm) Create(user *User) error {
 //Checks if the remember token is empty, if so creates a token
 //then calls the userGorm implementation of Update
 func (uv *userValidator) Update(user *User) error {
-	if err := runUserValFns(user, uv.bcryptPassword,
-		uv.setRememberIfUnset,
-		uv.rememberHash,
-		uv.normalizeEmail,
+	if err := runUserValFns(user,
 		uv.emailRequired,
 		uv.validEmail,
-		uv.emailAvailable); err != nil {
+		uv.emailAvailable,
+		uv.normalizeEmail,
+		uv.passwordMinLength,
+		uv.bcryptPassword,
+		uv.passwordHashRequired,
+		uv.setRememberIfUnset,
+		uv.rememberMinLength,
+		uv.rememberHash,
+		uv.rememberHashRequired); err != nil {
 		return err
 	}
 	return uv.UserDB.Update(user)
@@ -377,7 +393,7 @@ func (u *userGorm) Update(user *User) error {
 //We can never let the second case happen. So we should write code to avoid that.
 func (uv *userValidator) Delete(id uint) error {
 	if id == 0 {
-		return ErrInvalidID
+		return ErrIDInvalid
 	}
 	return uv.UserDB.Delete(id)
 }
@@ -417,12 +433,13 @@ func (uv *userValidator) validEmail(user *User) error {
 		return ErrEmailRequired
 	}
 	if !uv.emailregex.MatchString(user.Email) {
+		fmt.Println("Regex match failed")
 		return ErrEmailInvalid
 	}
 	return nil
 }
 
-//A validaotr function that checks if a user with an email address exists
+//A validator function that checks if a user with an email address exists
 func (uv *userValidator) emailAvailable(user *User) error {
 	existingUser, err := uv.ByEmail(user.Email)
 	//Email address is available if we don't find a user
@@ -445,6 +462,61 @@ func (uv *userValidator) emailAvailable(user *User) error {
 	//if its not the same user, then someone is trying to get an email
 	//that exists
 	return ErrEmailTaken
+}
+
+//This function fits the UserValFn function type and is a reciever on UserValidator
+//It checks it the lengrh of the password is atleast 8 characters.
+func (uv *userValidator) passwordMinLength(user *User) error {
+	if user.Password == "" {
+		return nil
+	}
+	if len(user.Password) >= 8 {
+		return nil
+	}
+	return ErrPasswordTooShort
+}
+
+//This function checks that a password is provided every time we create a new user.
+//This is a reciever on userValidator and implements the UserValFns type.
+func (uv *userValidator) passwordRequired(user *User) error {
+	fmt.Println(user)
+	if user.Password == "" {
+		return ErrPasswordTooShort
+	}
+	return nil
+}
+
+//This function checks that a password hash is crated everytime a password is
+//provided. This is a reciever on userValidator and implements the UserValFns type
+func (uv *userValidator) passwordHashRequired(user *User) error {
+	fmt.Println(user)
+	if user.PasswordHash == "" {
+		return ErrPasswordTooShort
+	}
+	return nil
+}
+
+//This function is a reciever of userValidator and fits the UserValFn type.
+//This function checks that the given remembertoken (not remember hash) is atleast 32 bytes.
+func (uv *userValidator) rememberMinLength(user *User) error {
+	if user.Remember != "" {
+		b, err := rand.NBytes(user.Remember)
+		fmt.Println(b)
+		fmt.Println(err)
+		if err == nil && b >= 32 {
+			return nil
+		}
+	}
+	return ErrRememberTooShort
+}
+
+//This function is a reciever on user validator and fits the UserValFns function type.
+//This function checks that the remember token (not remember hash) for a user isn't empty
+func (uv *userValidator) rememberHashRequired(user *User) error {
+	if user.RememberHash != "" {
+		return nil
+	}
+	return ErrRememberTooShort
 }
 
 //Authenticate : Still Implemented by the UserService
