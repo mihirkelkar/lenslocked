@@ -98,6 +98,8 @@ func main() {
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 	//test cookie function.
 	r.HandleFunc("/testcookie", userC.TestCookie).Methods("GET")
+	//json return end point
+	r.HandleFunc("/jsonresponse", userC.JsonResponse).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":3000", r))
 }

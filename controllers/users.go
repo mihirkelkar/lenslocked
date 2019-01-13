@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -150,4 +151,13 @@ func (u *Users) TestCookie(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintln(w, user)
+}
+
+//GET json response
+func (u *Users) JsonResponse(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "application/json")
+	data := views.Alert{Level: views.AlertLevelError,
+		Message: "This is a JSON test"}
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(data)
 }
