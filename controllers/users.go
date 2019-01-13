@@ -47,10 +47,15 @@ func (u *Users) New(w http.ResponseWriter, r *http.Request) {
 
 //POST /signup
 func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
+	var vd views.Data
 	form := SignUpForm{}
 	//this method is present in the helpers.go file
 	if err := ParseForm(r, &form); err != nil {
-		panic(err)
+		//set the error here to display.
+		vd.Alert = &views.Alert{Level: views.AlertLevelError,
+			Message: "Invalid form entries"}
+		u.NewView.Render(w, vd)
+		return
 	}
 
 	user := models.User{
@@ -61,7 +66,10 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := u.us.Create(&user); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//http.Error(w, err.Error(), http.StatusInternalServerError)
+		vd.Alert = &views.Alert{Level: views.AlertLevelError,
+			Message: err.Error()}
+		u.NewView.Render(w, vd)
 		return
 	}
 
@@ -71,7 +79,10 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	//Temporary Code
 	if err != nil {
 		// Temporarily render the error message for debugging
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//http.Error(w, err.Error(), http.StatusInternalServerError)
+		vd.Alert = &views.Alert{Level: views.AlertLevelError,
+			Message: err.Error()}
+		u.NewView.Render(w, vd)
 		return
 	}
 	// Redirect to the cookie test page to test the cookie
