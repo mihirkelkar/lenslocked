@@ -39,6 +39,9 @@ func NewUsers(us models.UserService) *Users {
 
 //New A receiver function that is going to act as a handler for the users
 // GET /signup
+//other get requests are simply templates from views/view.go that have implemented
+// the serveHTTP function can so can be served directly.
+// This is an alternate way of doing things.
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
 	if err := u.NewView.Render(w, nil); err != nil {
@@ -53,8 +56,8 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	//this method is present in the helpers.go file
 	if err := ParseForm(r, &form); err != nil {
 		//set the error here to display.
-		vd.Alert = &views.Alert{Level: views.AlertLevelError,
-			Message: "Invalid form entries"}
+		vd.SetAlert(err)
+		//display error
 		u.NewView.Render(w, vd)
 		return
 	}
@@ -68,8 +71,9 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := u.us.Create(&user); err != nil {
 		//http.Error(w, err.Error(), http.StatusInternalServerError)
-		vd.Alert = &views.Alert{Level: views.AlertLevelError,
-			Message: err.Error()}
+		//set Alert using the set alert function.
+		vd.SetAlert(err)
+		//display error
 		u.NewView.Render(w, vd)
 		return
 	}
@@ -81,9 +85,11 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Temporarily render the error message for debugging
 		//http.Error(w, err.Error(), http.StatusInternalServerError)
-		vd.Alert = &views.Alert{Level: views.AlertLevelError,
-			Message: err.Error()}
-		u.NewView.Render(w, vd)
+		//vd.SetAlert(err)
+		//u.NewView.Render(w, vd)
+		//re-direct user to login page.
+		http.Redirect(w, r, "/login", http.StatusFound)
+		//returns are important
 		return
 	}
 	// Redirect to the cookie test page to test the cookie
@@ -94,14 +100,22 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 //POST /login
 func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 	form := LoginForm{}
+	var vd views.Data
 
 	if err := ParseForm(r, &form); err != nil {
-		panic(err)
+		vd.SetAlert(err)
+		//display error back on login page.
+		u.LoginView.Render(w, vd)
+		//these returns are important
+		return
 	}
 
 	user, err := u.us.Authenticate(form.Email, form.Password)
 	if err != nil {
-		fmt.Fprintln(w, err)
+		vd.SetAlert(err)
+		//display error back on login page.
+		u.LoginView.Render(w, vd)
+		//these returns are important
 		return
 	}
 	//sign the user in and set a cookie.
@@ -109,7 +123,10 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 	err = u.SignIn(w, user)
 	if err != nil {
 		// Temporarily render the error message for debugging
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		//http.Error(w, err.Error(), http.StatusInternalServerError)
+		//return
+		vd.SetAlert(err)
+		u.LoginView.Render(w, vd)
 		return
 	}
 	// Redirect to the cookie test page to test the cookie

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -13,16 +12,37 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+//we're defining a type called model error which is a string.
+//We will implement the Error() and Public() function on it.
+//so that modelerror fits the error interface (yes, all errors are interfaces in go
+//so as long you implement the Error() function, you fit the error interface)
+//we've defined a PublicError interface in views/data.go, modelerror will also
+//implement that interface.
+type modelerror string
+
+//model error fits the standard golang error interface.
+func (e modelerror) Error() string {
+	return string(e)
+}
+
+//model error fits the custom defined PublicError interface in views/data.go
+func (e modelerror) Public() string {
+	s := strings.Replace(string(e), "models: ", "", 1)
+	split := strings.Split(s, " ")
+	split[0] = strings.Title(split[0])
+	return strings.Join(split, " ")
+}
+
 var (
-	ErrNotFound          = errors.New("The user you were looking for was not found")
-	ErrIDInvalid         = errors.New("The ID you provided is Invalid")
-	ErrPasswordIncorrect = errors.New("This username and password combination is not valid")
-	ErrPasswordTooShort  = errors.New("The password has to contain at-least 8 characters")
-	ErrEmailRequired     = errors.New("An email needs to be provided")
-	ErrEmailInvalid      = errors.New("This email is invalid")
-	ErrEmailTaken        = errors.New("This email address already has an assocaited account")
-	ErrRememberTooShort  = errors.New("This remember token is too short")
-	ErrRememberHashReq   = errors.New("Remember Hash is required")
+	ErrNotFound          modelerror = "models: The user you were looking for was not found"
+	ErrIDInvalid         modelerror = "models: The ID you provided is Invalid"
+	ErrPasswordIncorrect modelerror = "models: This username and password combination is not valid"
+	ErrPasswordTooShort  modelerror = "models: The password has to contain at-least 8 characters"
+	ErrEmailRequired     modelerror = "models: An email needs to be provided"
+	ErrEmailInvalid      modelerror = "models: This email is invalid"
+	ErrEmailTaken        modelerror = "models: This email address already has an assocaited account"
+	ErrRememberTooShort  modelerror = "models: This remember token is too short"
+	ErrRememberHashReq   modelerror = "models: Remember Hash is required"
 )
 var userPwPepper = "N0thingF0rTheSwimB@ck"
 
@@ -525,6 +545,12 @@ func (u *userService) Authenticate(email string, password string) (*User, error)
 	//because no reciever function on the UserService struct has overwritten the
 	//UserDB implementation of ByEmail
 	foundUser, err := u.ByEmail(email)
+	//fmt.Println("This was the found user : ", foundUser)
+
+	if foundUser == nil {
+		return foundUser, ErrNotFound
+	}
+
 	if err != nil {
 		return nil, err
 	}

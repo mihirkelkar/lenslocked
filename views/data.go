@@ -17,8 +17,23 @@ type Data struct {
 	Yield interface{}
 }
 
+//a new publicerror interface that implements the error interface
+//and an extra public function.
+type PublicError interface {
+	error
+	Public() string
+}
+
 func (d *Data) SetAlert(err error) {
-	d.Alert = &Alert{Level: AlertLevelError,
-		Message: err.Error(),
+	var msg string
+	//check if this is a public error
+	if pErr, ok := err.(PublicError); ok {
+		msg = pErr.Public()
+	} else {
+		msg = err.Error()
+	}
+	d.Alert = &Alert{
+		Level:   AlertLevelError,
+		Message: msg,
 	}
 }
