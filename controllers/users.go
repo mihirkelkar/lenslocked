@@ -44,9 +44,7 @@ func NewUsers(us models.UserService) *Users {
 // This is an alternate way of doing things.
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
-	if err := u.NewView.Render(w, nil); err != nil {
-		panic(err)
-	}
+	u.NewView.Render(w, nil)
 }
 
 //POST /signup
