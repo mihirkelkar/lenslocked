@@ -67,16 +67,16 @@ func main() {
 		"dbname=%s sslmode=disable", host, port, user, dbname)
 
 	//create a user service right away
-	us, err := models.NewUserService(psqlInfo)
+	services, err := models.NewServices(psqlInfo)
 	if err != nil {
 		panic(err)
 	}
-	defer us.Close()
-	us.AutoMigrate()
+	defer services.Close()
+	services.AutoMigrate()
 
 	staticC := controllers.NewStatic()
 	//We pass the user service (relatd to the model) to the user controller
-	var userC = controllers.NewUsers(us)
+	var userC = controllers.NewUsers(services.UserService)
 	var gallC = controllers.NewGallery()
 
 	r := mux.NewRouter()

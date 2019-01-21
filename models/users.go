@@ -72,13 +72,6 @@ type UserDB interface {
 	Create(user *User) error
 	Update(user *User) error
 	Delete(id uint) error
-
-	//Close connections to the user database
-	Close()
-
-	//Automigrate the database
-	AutoMigrate() error
-	DestructiveReset() error
 }
 
 //UserService : Is used to interact with our models package.
@@ -159,11 +152,8 @@ func runUserValFns(user *User, fns ...userValFn) error {
 //Interfaces can be nil,
 // so we don't need to return a pointer here. Don't forget
 // to update this first line - we removed the * character
-func NewUserService(connectionstring string) (UserService, error) {
-	ug, err := newUserGorm(connectionstring)
-	if err != nil {
-		return nil, err
-	}
+func NewUserService(db *gorm.DB) (UserService, error) {
+	ug := newUserGorm(db)
 	userValidator := newUserValidator(ug, hash.NewHMAC(secretkey))
 	//userValidator implements the UserDB interface for userService
 
@@ -180,22 +170,11 @@ func newUserValidator(udb UserDB, hmac hash.HMAC) *userValidator {
 }
 
 //newUserGorm : Creates a UserService instane with an open connection
-func newUserGorm(connectionstring string) (*userGorm, error) {
-	db, err := gorm.Open("postgres", connectionstring)
-	if err != nil {
-		return nil, err
-	}
-
+func newUserGorm(db *gorm.DB) *userGorm {
 	db.LogMode(true)
 	return &userGorm{
 		db: db,
-	}, nil
-
-}
-
-//Close : Closes the connection to the gorm database
-func (u *userGorm) Close() {
-	u.db.Close()
+	}
 }
 
 //ByID has no validation code, so we won't be implementing this for the
@@ -274,28 +253,6 @@ func (u *userGorm) ByRememberHash(hash string) (*User, error) {
 		return nil, err
 	}
 	return &user, nil
-}
-
-//AutoMigrate : Auto-Migrates the user table and makes new column additions
-// and updates
-func (u *userGorm) AutoMigrate() error {
-	err := u.db.AutoMigrate(&User{}).Error
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-//DestructiveReset : Completely Delete all data and start again
-func (u *userGorm) DestructiveReset() error {
-	if err := u.db.DropTableIfExists(&User{}).Error; err != nil {
-		return err
-	}
-	err := u.AutoMigrate()
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 //brcyptPassword : A validator function that can be called to add
