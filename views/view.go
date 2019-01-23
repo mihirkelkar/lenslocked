@@ -2,6 +2,7 @@ package views
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -52,6 +53,7 @@ func (v *View) Render(w http.ResponseWriter, data interface{}) {
 	//be reversed. So we're going to write to a buffer and check for errors
 	err := v.Template.ExecuteTemplate(&buf, v.Layout, data)
 	if err != nil {
+		fmt.Println(err)
 		http.Error(w, "Something went wrong. If the problem "+
 			"persists, please email mihir@lenslocked.com",
 			http.StatusInternalServerError)

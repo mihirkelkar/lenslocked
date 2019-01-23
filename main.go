@@ -77,7 +77,7 @@ func main() {
 	staticC := controllers.NewStatic()
 	//We pass the user service (relatd to the model) to the user controller
 	var userC = controllers.NewUsers(services.UserService)
-	var gallC = controllers.NewGallery()
+	var gallC = controllers.NewGallery(services.GalleryService)
 
 	r := mux.NewRouter()
 	r.NotFoundHandler = h
@@ -95,6 +95,7 @@ func main() {
 	r.HandleFunc("/login", userC.Login).Methods("POST")
 
 	r.HandleFunc("/galleries/new", gallC.New).Methods("GET")
+	r.HandleFunc("/galleries", gallC.Create).Methods("POST")
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 	//test cookie function.
 	r.HandleFunc("/testcookie", userC.TestCookie).Methods("GET")

@@ -13,6 +13,17 @@ type GalleryService interface {
 	GalleryDB
 }
 
+//Both of these structs below implement the GalleryService Interface.
+//They also implement the GAlleryDB interface per se right now since
+//they have galleryDB as a field in the struct.
+type galleryService struct {
+	GalleryDB
+}
+
+type galleryValidator struct {
+	GalleryDB
+}
+
 //GalleryDB : interface used to access gallery gorm from within the model.
 //You can have a validator implement this interface and fit functionality
 //and validation with similar function names
@@ -28,11 +39,17 @@ type galleryGorm struct {
 
 //Create : Reciever function defined on galleryGorm that fits the GalleryDB interface
 func (gg *galleryGorm) Create(gallery *Gallery) error {
-	return nil
+	return gg.db.Create(gallery).Error
 }
 
-//Retrurns a new gallery service letting controllers use this to
+//NewGAlleryService : Retrurns a new gallery service letting controllers use this to
 //do things to / with galleries
 func NewGalleryService(db *gorm.DB) (GalleryService, error) {
-	return nil, nil
+	return &galleryService{
+		GalleryDB: &galleryValidator{
+			GalleryDB: &galleryGorm{
+				db: db,
+			},
+		},
+	}, nil
 }
