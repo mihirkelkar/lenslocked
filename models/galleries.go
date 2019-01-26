@@ -8,6 +8,22 @@ type Gallery struct {
 	Title  string `gorm:"not_null"`
 }
 
+var (
+	ErrUserIDRequired modelerror = "Error: UserID is reqquired"
+	ErrTitleRequired  modelerror = "Error: A title is required"
+)
+
+type GalleryValFns func(*Gallery) error
+
+func RunGalleryValFns(gallery *Gallery, fns ...GalleryValFns) error {
+	for _, fn := range(fns){
+		if err := fn(gallery); err != nil{
+			return err
+		}
+	}
+	return nil
+}
+
 //GalleryService : Can be used from the controllers to access the Gallery Gorm Model
 type GalleryService interface {
 	GalleryDB
@@ -52,4 +68,35 @@ func NewGalleryService(db *gorm.DB) (GalleryService, error) {
 			},
 		},
 	}, nil
+}
+
+//This function is a reciever on the gallery validator struct
+//and also implements the GalleryValFns type.
+func (gv *galleryValidator) userIDRequired(gallery *Gallery) error{
+	//check if the userId of the gallery is nil. If so return error.
+	//otherwise return nil.
+	//In gorm, we start user ids from 1
+	if gallery.UserID <= 0{
+		return ErrUserIDRequired
+	}
+	return nil
+}
+
+//This function is a reciever funcion on the gallery validator struct
+//It also implements the GalleryValFns type.
+func (gv *galleryValidator) titleRequried(gallery *Gallery) error{
+	if gallery.Title == ""{
+		return ErrTitleRequired
+	}
+	return nil
+}
+
+//This runs all the validation function and just calls the underlying create
+func (gv *galleryValidator) Create(gallery *Gallery) error {
+	if err := RunGalleryValFns(gallery,
+		gv.userIDRequired,
+	  gv.titleRequried,); err != nil{
+			return err
+		}
+		return gv.GalleryDB.Create(gallery)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mihirkelkar/lenslocked.com/controllers"
+	"github.com/mihirkelkar/lenslocked.com/middleware"
 	"github.com/mihirkelkar/lenslocked.com/models"
 	"github.com/mihirkelkar/lenslocked.com/views"
 )
@@ -74,6 +75,12 @@ func main() {
 	defer services.Close()
 	services.AutoMigrate()
 
+	//middleware wraps around functions of Handler type
+	//and forces people to login before serving those functions.
+	requireUserMw := middleware.RequireUser{
+		UserService: services.UserService,
+	}
+
 	staticC := controllers.NewStatic()
 	//We pass the user service (relatd to the model) to the user controller
 	var userC = controllers.NewUsers(services.UserService)
@@ -94,8 +101,17 @@ func main() {
 	r.Handle("/login", userC.LoginView).Methods("GET")
 	r.HandleFunc("/login", userC.Login).Methods("POST")
 
-	r.HandleFunc("/galleries/new", gallC.New).Methods("GET")
-	r.HandleFunc("/galleries", gallC.Create).Methods("POST")
+	// gallC.New is an http.Handler, so we use Apply
+	//the template for new galleries is served directly
+	//since we have implemented serveHTTP for templates
+	//we're adding middleware here, to force people to login before
+	newGallery := requireUserMw.Apply(gallC.NewView)
+	r.HandleFunc("/galleries/new", newGallery).Methods("GET")
+	//gallC.Create is an http.HandleFunc, so we use ApplyFn
+	//we're adding middleware here too.
+	createGallery := requireUserMw.ApplyFn(gallC.Create)
+	r.HandleFunc("/galleries", createGallery).Methods("POST")
+
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 	//test cookie function.
 	r.HandleFunc("/testcookie", userC.TestCookie).Methods("GET")

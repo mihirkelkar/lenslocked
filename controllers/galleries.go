@@ -28,10 +28,10 @@ func NewGallery(gs models.GalleryService) *Galleries {
 
 //GET galleries/new
 //New : Creates a handler function that can render a new gallery
-func (g *Galleries) New(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "text/html")
-	g.NewView.Render(w, nil)
-}
+//func (g *Galleries) New(w http.ResponseWriter, r *http.Request) {
+//	w.Header().Set("content-type", "text/html")
+//	g.NewView.Render(w, nil)
+//}
 
 func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 	var vd views.Data
