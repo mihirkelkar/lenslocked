@@ -111,6 +111,7 @@ func main() {
 	//we're adding middleware here too.
 	createGallery := requireUserMw.ApplyFn(gallC.Create)
 	r.HandleFunc("/galleries", createGallery).Methods("POST")
+	r.HandleFunc("/galleries/{id:[0-9]+}", gallC.Show).Methods("GET")
 
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 	//test cookie function.

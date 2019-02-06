@@ -11,13 +11,14 @@ type Gallery struct {
 var (
 	ErrUserIDRequired modelerror = "Error: UserID is reqquired"
 	ErrTitleRequired  modelerror = "Error: A title is required"
+	ErrIdNotFound     modelerror = "Error: The Gallery ID was not found"
 )
 
 type GalleryValFns func(*Gallery) error
 
 func RunGalleryValFns(gallery *Gallery, fns ...GalleryValFns) error {
-	for _, fn := range(fns){
-		if err := fn(gallery); err != nil{
+	for _, fn := range fns {
+		if err := fn(gallery); err != nil {
 			return err
 		}
 	}
@@ -44,6 +45,7 @@ type galleryValidator struct {
 //You can have a validator implement this interface and fit functionality
 //and validation with similar function names
 type GalleryDB interface {
+	ByID(id uint) (*Gallery, error)
 	Create(gallery *Gallery) error
 }
 
@@ -56,6 +58,20 @@ type galleryGorm struct {
 //Create : Reciever function defined on galleryGorm that fits the GalleryDB interface
 func (gg *galleryGorm) Create(gallery *Gallery) error {
 	return gg.db.Create(gallery).Error
+}
+
+//ByID : Reciever function defined on galleryGorm that fits the GalleryDB interface
+func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
+	var gallery Gallery
+	err := gg.db.Where("id = ?", id).First(&gallery).Error
+	switch err {
+	case nil:
+		return &gallery, nil
+	case gorm.ErrRecordNotFound:
+		return nil, ErrIdNotFound
+	default:
+		return nil, ErrIdNotFound
+	}
 }
 
 //NewGAlleryService : Retrurns a new gallery service letting controllers use this to
@@ -72,11 +88,11 @@ func NewGalleryService(db *gorm.DB) (GalleryService, error) {
 
 //This function is a reciever on the gallery validator struct
 //and also implements the GalleryValFns type.
-func (gv *galleryValidator) userIDRequired(gallery *Gallery) error{
+func (gv *galleryValidator) userIDRequired(gallery *Gallery) error {
 	//check if the userId of the gallery is nil. If so return error.
 	//otherwise return nil.
 	//In gorm, we start user ids from 1
-	if gallery.UserID <= 0{
+	if gallery.UserID <= 0 {
 		return ErrUserIDRequired
 	}
 	return nil
@@ -84,8 +100,8 @@ func (gv *galleryValidator) userIDRequired(gallery *Gallery) error{
 
 //This function is a reciever funcion on the gallery validator struct
 //It also implements the GalleryValFns type.
-func (gv *galleryValidator) titleRequried(gallery *Gallery) error{
-	if gallery.Title == ""{
+func (gv *galleryValidator) titleRequried(gallery *Gallery) error {
+	if gallery.Title == "" {
 		return ErrTitleRequired
 	}
 	return nil
@@ -95,8 +111,8 @@ func (gv *galleryValidator) titleRequried(gallery *Gallery) error{
 func (gv *galleryValidator) Create(gallery *Gallery) error {
 	if err := RunGalleryValFns(gallery,
 		gv.userIDRequired,
-	  gv.titleRequried,); err != nil{
-			return err
-		}
-		return gv.GalleryDB.Create(gallery)
+		gv.titleRequried); err != nil {
+		return err
+	}
+	return gv.GalleryDB.Create(gallery)
 }
