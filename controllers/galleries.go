@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -11,11 +10,16 @@ import (
 	"github.com/mihirkelkar/lenslocked.com/views"
 )
 
+const (
+	ShowGallery = "show_gallery"
+)
+
 //Galleries :  struct that represents a view of type gallery
 type Galleries struct {
 	NewView  *views.View
 	ShowView *views.View
 	gs       models.GalleryService
+	r        *mux.Router
 }
 
 type GalleryForm struct {
@@ -23,11 +27,12 @@ type GalleryForm struct {
 }
 
 //NewGallery : Creates a new struct of type gallery
-func NewGallery(gs models.GalleryService) *Galleries {
+func NewGallery(gs models.GalleryService, r *mux.Router) *Galleries {
 	return &Galleries{
 		NewView:  views.NewView("bootstrap", "views/galleries/new.gohtml"),
 		ShowView: views.NewView("bootstrap", "views/galleries/show.gohtml"),
 		gs:       gs,
+		r:        r,
 	}
 }
 
@@ -59,7 +64,14 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 		g.NewView.Render(w, vd)
 		return
 	}
-	fmt.Fprintln(w, gallery)
+	url, err := g.r.Get(ShowGallery).URL("id", strconv.Itoa(int(gallery.ID)))
+	//If there are errors in the url, then just redirect to a page.
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, url.Path, http.StatusFound)
+
 }
 
 func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {

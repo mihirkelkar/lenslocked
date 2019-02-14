@@ -67,6 +67,12 @@ func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"dbname=%s sslmode=disable", host, port, user, dbname)
 
+	r := mux.NewRouter()
+	r.NotFoundHandler = h
+
+	//define controllers here.
+	staticC := controllers.NewStatic()
+
 	//create a user service right away
 	services, err := models.NewServices(psqlInfo)
 	if err != nil {
@@ -75,19 +81,13 @@ func main() {
 	defer services.Close()
 	services.AutoMigrate()
 
-	//middleware wraps around functions of Handler type
-	//and forces people to login before serving those functions.
+	//We pass the user service (relatd to the model) to the user controller
+	var userC = controllers.NewUsers(services.UserService)
+	var gallC = controllers.NewGallery(services.GalleryService, r)
 	requireUserMw := middleware.RequireUser{
 		UserService: services.UserService,
 	}
 
-	staticC := controllers.NewStatic()
-	//We pass the user service (relatd to the model) to the user controller
-	var userC = controllers.NewUsers(services.UserService)
-	var gallC = controllers.NewGallery(services.GalleryService)
-
-	r := mux.NewRouter()
-	r.NotFoundHandler = h
 	r.Handle("/", staticC.Home).Methods("GET")
 	r.Handle("/contact", staticC.Contact).Methods("GET")
 	r.Handle("/faq", staticC.Faq).Methods("GET")
@@ -111,7 +111,9 @@ func main() {
 	//we're adding middleware here too.
 	createGallery := requireUserMw.ApplyFn(gallC.Create)
 	r.HandleFunc("/galleries", createGallery).Methods("POST")
-	r.HandleFunc("/galleries/{id:[0-9]+}", gallC.Show).Methods("GET")
+
+	//lets also name this route just for sake of convinience.
+	r.HandleFunc("/galleries/{id:[0-9]+}", gallC.Show).Methods("GET").Name(controllers.ShowGallery)
 
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 	//test cookie function.
