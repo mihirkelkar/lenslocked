@@ -18,6 +18,7 @@ const (
 type Galleries struct {
 	NewView  *views.View
 	ShowView *views.View
+	EditView *views.View
 	gs       models.GalleryService
 	r        *mux.Router
 }
@@ -31,6 +32,7 @@ func NewGallery(gs models.GalleryService, r *mux.Router) *Galleries {
 	return &Galleries{
 		NewView:  views.NewView("bootstrap", "views/galleries/new.gohtml"),
 		ShowView: views.NewView("bootstrap", "views/galleries/show.gohtml"),
+		EditView: views.NewView("bootstrap", "views/galleries/edit.gohtml"),
 		gs:       gs,
 		r:        r,
 	}
@@ -75,19 +77,11 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	var vd views.Data
-	//get id from the vars map.
-	idStr := vars["id"]
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		http.Error(w, "Invalid Gallery ID", http.StatusNotFound)
-		return
-	}
+	gallery, err := g.galleriesByID(w, r)
 	// Finally we need to lookup the gallery with the ID we
 	// have, but we haven't written that code yet! For now we
 	// will create a temporary gallery to test our view.
-	gallery, err := g.gs.ByID(uint(id))
+	var vd views.Data
 	if err != nil {
 		vd.SetAlert(err)
 		g.NewView.Render(w, vd)
@@ -95,4 +89,38 @@ func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
 	}
 	vd.Yield = gallery
 	g.ShowView.Render(w, vd)
+}
+
+func (g *Galleries) galleriesByID(w http.ResponseWriter, r *http.Request) (*models.Gallery, error) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return nil, err
+	}
+	//if there are no errors in parsing the gallery id.
+	gallery, err := g.gs.ByID(uint(id))
+	if err != nil {
+		return nil, err
+	}
+	return gallery, nil
+}
+
+func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
+	var vd views.Data
+	gallery, err := g.galleriesByID(w, r)
+	if err != nil {
+		vd.SetAlert(err)
+		g.EditView.Render(w, vd)
+	}
+
+	//get user from User Context
+	user := context.User(r.Context())
+	if user.ID != gallery.UserID {
+		http.Error(w, "You're not authoized to edit this gallery", http.StatusForbidden)
+		return
+	}
+	vd.Yield = gallery
+	g.EditView.Render(w, vd)
+
 }

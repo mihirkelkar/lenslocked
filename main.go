@@ -110,10 +110,15 @@ func main() {
 	//gallC.Create is an http.HandleFunc, so we use ApplyFn
 	//we're adding middleware here too.
 	createGallery := requireUserMw.ApplyFn(gallC.Create)
+
 	r.HandleFunc("/galleries", createGallery).Methods("POST")
 
 	//lets also name this route just for sake of convinience.
 	r.HandleFunc("/galleries/{id:[0-9]+}", gallC.Show).Methods("GET").Name(controllers.ShowGallery)
+
+	//lets add a middle ware to the edit gallery page
+	editGallery := requireUserMw.ApplyFn(gallC.Edit)
+	r.HandleFunc("/galleries/{id:[0-9]+}/edit", editGallery).Methods("GET")
 
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 	//test cookie function.
