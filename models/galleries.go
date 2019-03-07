@@ -47,6 +47,7 @@ type galleryValidator struct {
 type GalleryDB interface {
 	ByID(id uint) (*Gallery, error)
 	Create(gallery *Gallery) error
+	Update(gallery *Gallery) error
 }
 
 //galleryGorm : actual struct to access the gallery model.
@@ -58,6 +59,10 @@ type galleryGorm struct {
 //Create : Reciever function defined on galleryGorm that fits the GalleryDB interface
 func (gg *galleryGorm) Create(gallery *Gallery) error {
 	return gg.db.Create(gallery).Error
+}
+
+func (gg *galleryGorm) Update(gallery *Gallery) error {
+	return gg.db.Save(gallery).Error
 }
 
 //ByID : Reciever function defined on galleryGorm that fits the GalleryDB interface
@@ -74,7 +79,7 @@ func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
 	}
 }
 
-//NewGAlleryService : Retrurns a new gallery service letting controllers use this to
+//NewGalleryService : Retrurns a new gallery service letting controllers use this to
 //do things to / with galleries
 func NewGalleryService(db *gorm.DB) (GalleryService, error) {
 	return &galleryService{
@@ -115,4 +120,14 @@ func (gv *galleryValidator) Create(gallery *Gallery) error {
 		return err
 	}
 	return gv.GalleryDB.Create(gallery)
+}
+
+//This runs all the validation functions and just calls the underlying update
+func (gv *galleryValidator) Update(gallery *Gallery) error {
+	if err := RunGalleryValFns(gallery,
+		gv.userIDRequired,
+		gv.titleRequried); err != nil {
+		return err
+	}
+	return gv.GalleryDB.Update(gallery)
 }

@@ -124,3 +124,40 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	g.EditView.Render(w, vd)
 
 }
+
+func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
+	var vd views.Data
+	gallery, err := g.galleriesByID(w, r)
+	if err != nil {
+		vd.SetAlert(err)
+	}
+
+	//get the user from the user context
+	user := context.User(r.Context())
+	if user.ID != gallery.UserID {
+		http.Error(w, "You're not authorized to perform the gallery update", http.StatusForbidden)
+		return
+	}
+
+	//if the user is authoized to edit the gallery
+	var form GalleryForm
+	if err = ParseForm(r, &form); err != nil {
+		vd.SetAlert(err)
+		g.EditView.Render(w, vd)
+		return
+	}
+
+	gallery.Title = form.Title
+	if err := g.gs.Update(gallery); err != nil {
+		vd.SetAlert(err)
+		g.EditView.Render(w, vd)
+		return
+	}
+	vd.Alert = &views.Alert{
+		Level:   views.AlertLevelSuccess,
+		Message: "Gallery updated successfully!",
+	}
+	vd.Yield = gallery
+	g.ShowView.Render(w, vd)
+	return
+}
