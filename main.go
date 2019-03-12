@@ -123,6 +123,9 @@ func main() {
 	updateGallery := requireUserMw.ApplyFn(gallC.Update)
 	r.HandleFunc("/galleries/{id:[0-9]+}/update", updateGallery).Methods("POST")
 
+	deleteGallery := requireUserMw.ApplyFn(gallC.Delete)
+	r.HandleFunc("/galleries/{id:[0-9]+}/delete", deleteGallery).Methods("POST")
+
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
 	//test cookie function.
 	r.HandleFunc("/testcookie", userC.TestCookie).Methods("GET")

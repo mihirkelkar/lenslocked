@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -160,4 +161,29 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 	vd.Yield = gallery
 	g.ShowView.Render(w, vd)
 	return
+}
+
+func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
+	var vd views.Data
+
+	//get gallery from the url
+	gallery, err := g.galleriesByID(w, r)
+	if err != nil {
+		http.Error(w, "Your gallery could not be found", http.StatusNotFound)
+	}
+	user := context.User(r.Context())
+	if user.ID != gallery.UserID {
+		http.Error(w, "You're not authorized to delete the gallery", http.StatusForbidden)
+		return
+	}
+
+	err = g.gs.Delete(gallery)
+	if err != nil {
+		vd.SetAlert(err)
+		vd.Yield = gallery
+		g.EditView.Render(w, vd)
+		return
+	}
+
+	fmt.Fprintln(w, "successfully deleted!")
 }

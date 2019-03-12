@@ -12,6 +12,7 @@ var (
 	ErrUserIDRequired modelerror = "Error: UserID is reqquired"
 	ErrTitleRequired  modelerror = "Error: A title is required"
 	ErrIdNotFound     modelerror = "Error: The Gallery ID was not found"
+	ErrZeroID         modelerror = "Error: Zero Gallery ID cannot be deleted"
 )
 
 type GalleryValFns func(*Gallery) error
@@ -48,6 +49,7 @@ type GalleryDB interface {
 	ByID(id uint) (*Gallery, error)
 	Create(gallery *Gallery) error
 	Update(gallery *Gallery) error
+	Delete(gallery *Gallery) error
 }
 
 //galleryGorm : actual struct to access the gallery model.
@@ -63,6 +65,10 @@ func (gg *galleryGorm) Create(gallery *Gallery) error {
 
 func (gg *galleryGorm) Update(gallery *Gallery) error {
 	return gg.db.Save(gallery).Error
+}
+
+func (gg *galleryGorm) Delete(gallery *Gallery) error {
+	return gg.db.Delete(gallery).Error
 }
 
 //ByID : Reciever function defined on galleryGorm that fits the GalleryDB interface
@@ -112,6 +118,13 @@ func (gv *galleryValidator) titleRequried(gallery *Gallery) error {
 	return nil
 }
 
+func (gv *galleryValidator) nonZeroID(gallery *Gallery) error {
+	if gallery.ID == 0 {
+		return ErrZeroID
+	}
+	return nil
+}
+
 //This runs all the validation function and just calls the underlying create
 func (gv *galleryValidator) Create(gallery *Gallery) error {
 	if err := RunGalleryValFns(gallery,
@@ -130,4 +143,14 @@ func (gv *galleryValidator) Update(gallery *Gallery) error {
 		return err
 	}
 	return gv.GalleryDB.Update(gallery)
+}
+
+func (gv *galleryValidator) Delete(gallery *Gallery) error {
+	if err := RunGalleryValFns(gallery,
+		gv.userIDRequired,
+		gv.titleRequried,
+		gv.nonZeroID); err != nil {
+		return err
+	}
+	return gv.GalleryDB.Delete(gallery)
 }
