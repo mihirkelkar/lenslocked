@@ -47,6 +47,7 @@ type galleryValidator struct {
 //and validation with similar function names
 type GalleryDB interface {
 	ByID(id uint) (*Gallery, error)
+	ByUserID(id uint) ([]Gallery, error)
 	Create(gallery *Gallery) error
 	Update(gallery *Gallery) error
 	Delete(gallery *Gallery) error
@@ -78,6 +79,20 @@ func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
 	switch err {
 	case nil:
 		return &gallery, nil
+	case gorm.ErrRecordNotFound:
+		return nil, ErrIdNotFound
+	default:
+		return nil, ErrIdNotFound
+	}
+}
+
+//ByUserID : Finds all galleries associated with a userId
+func (gg *galleryGorm) ByUserID(id uint) ([]Gallery, error) {
+	var galleries []Gallery
+	err := gg.db.Where("id = ?", id).Find(&galleries).Error
+	switch err {
+	case nil:
+		return galleries, err
 	case gorm.ErrRecordNotFound:
 		return nil, ErrIdNotFound
 	default:

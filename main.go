@@ -107,11 +107,14 @@ func main() {
 	//we're adding middleware here, to force people to login before
 	newGallery := requireUserMw.Apply(gallC.NewView)
 	r.HandleFunc("/galleries/new", newGallery).Methods("GET")
+
 	//gallC.Create is an http.HandleFunc, so we use ApplyFn
 	//we're adding middleware here too.
 	createGallery := requireUserMw.ApplyFn(gallC.Create)
-
 	r.HandleFunc("/galleries", createGallery).Methods("POST")
+
+	indexGallery := requireUserMw.ApplyFn(gallC.Index)
+	r.HandleFunc("/galleries", indexGallery).Methods("GET")
 
 	//lets also name this route just for sake of convinience.
 	r.HandleFunc("/galleries/{id:[0-9]+}", gallC.Show).Methods("GET").Name(controllers.ShowGallery)

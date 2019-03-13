@@ -1,0 +1,16 @@
+{{define "yield"}}
+<tbody>
+  {{range .}}
+    <tr>
+      <th scope="row">{{.ID}}</th>
+      <td>{{.Title}}</td>
+      <td>
+        <a href="/galleries/{{.ID}}"> View </a>
+      </td>
+      <td>
+        <a href="/galleries/{{.ID}}/edit"> Edit </a>
+      </td>
+    </tr>
+  {{end}}
+</tbody>
+{{end}}

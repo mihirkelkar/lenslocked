@@ -17,11 +17,12 @@ const (
 
 //Galleries :  struct that represents a view of type gallery
 type Galleries struct {
-	NewView  *views.View
-	ShowView *views.View
-	EditView *views.View
-	gs       models.GalleryService
-	r        *mux.Router
+	NewView   *views.View
+	ShowView  *views.View
+	EditView  *views.View
+	IndexView *views.View
+	gs        models.GalleryService
+	r         *mux.Router
 }
 
 type GalleryForm struct {
@@ -31,11 +32,12 @@ type GalleryForm struct {
 //NewGallery : Creates a new struct of type gallery
 func NewGallery(gs models.GalleryService, r *mux.Router) *Galleries {
 	return &Galleries{
-		NewView:  views.NewView("bootstrap", "views/galleries/new.gohtml"),
-		ShowView: views.NewView("bootstrap", "views/galleries/show.gohtml"),
-		EditView: views.NewView("bootstrap", "views/galleries/edit.gohtml"),
-		gs:       gs,
-		r:        r,
+		NewView:   views.NewView("bootstrap", "views/galleries/new.gohtml"),
+		ShowView:  views.NewView("bootstrap", "views/galleries/show.gohtml"),
+		EditView:  views.NewView("bootstrap", "views/galleries/edit.gohtml"),
+		IndexView: views.NewView("bootstrap", "views/galleries/index.gohtml"),
+		gs:        gs,
+		r:         r,
 	}
 }
 
@@ -163,6 +165,7 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+//POST galleries/<id>/delete
 func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
 	var vd views.Data
 
@@ -186,4 +189,19 @@ func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprintln(w, "successfully deleted!")
+}
+
+//GET /galleries
+//Index lists all the galleries for a user.
+func (g *Galleries) Index(w http.ResponseWriter, r *http.Request) {
+	var vd views.Data
+	user := context.User(r.Context())
+	galleries, err := g.gs.ByUserID(uint(user.ID))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	vd.Yield = galleries
+	g.IndexView.Render(w, vd)
+	return
 }
