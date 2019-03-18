@@ -44,7 +44,7 @@ func NewUsers(us models.UserService) *Users {
 // This is an alternate way of doing things.
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
-	u.NewView.Render(w, nil)
+	u.NewView.Render(w, r, nil)
 }
 
 //POST /signup
@@ -56,7 +56,7 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		//set the error here to display.
 		vd.SetAlert(err)
 		//display error
-		u.NewView.Render(w, vd)
+		u.NewView.Render(w, r, vd)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		//set Alert using the set alert function.
 		vd.SetAlert(err)
 		//display error
-		u.NewView.Render(w, vd)
+		u.NewView.Render(w, r, vd)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Redirect to the cookie test page to test the cookie
-	http.Redirect(w, r, "/testcookie", http.StatusFound)
+	http.Redirect(w, r, "/galleries", http.StatusFound)
 
 }
 
@@ -103,7 +103,7 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 	if err := ParseForm(r, &form); err != nil {
 		vd.SetAlert(err)
 		//display error back on login page.
-		u.LoginView.Render(w, vd)
+		u.LoginView.Render(w, r, vd)
 		//these returns are important
 		return
 	}
@@ -112,7 +112,7 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		vd.SetAlert(err)
 		//display error back on login page.
-		u.LoginView.Render(w, vd)
+		u.LoginView.Render(w, r, vd)
 		//these returns are important
 		return
 	}
@@ -124,11 +124,12 @@ func (u *Users) Login(w http.ResponseWriter, r *http.Request) {
 		//http.Error(w, err.Error(), http.StatusInternalServerError)
 		//return
 		vd.SetAlert(err)
-		u.LoginView.Render(w, vd)
+		u.LoginView.Render(w, r, vd)
 		return
 	}
 	// Redirect to the cookie test page to test the cookie
-	http.Redirect(w, r, "/testcookie", http.StatusFound)
+	//http.Redirect(w, r, "/testcookie", http.StatusFound)
+	http.Redirect(w, r, "/galleries", http.StatusFound)
 }
 
 // signIn is used to sign the given user in via cookies.

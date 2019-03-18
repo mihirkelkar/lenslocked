@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -54,7 +53,7 @@ func errorMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	var h http.Handler = http.HandlerFunc(errorMessage)
+	//var h http.Handler = http.HandlerFunc(errorMessage)
 	//we're assigning to a global here. So no :=
 
 	// The handler functions for home and contact are not doing much.
@@ -68,7 +67,6 @@ func main() {
 		"dbname=%s sslmode=disable", host, port, user, dbname)
 
 	r := mux.NewRouter()
-	r.NotFoundHandler = h
 
 	//define controllers here.
 	staticC := controllers.NewStatic()
@@ -84,9 +82,17 @@ func main() {
 	//We pass the user service (relatd to the model) to the user controller
 	var userC = controllers.NewUsers(services.UserService)
 	var gallC = controllers.NewGallery(services.GalleryService, r)
+
+	userMw := middleware.UserMWare{
+		UserService: services.UserService,
+	}
+
 	requireUserMw := middleware.RequireUser{
 		UserService: services.UserService,
 	}
+
+	//start the soft middleware on all routes
+	//http.ListenAndServe(":3000", userMw.Apply(r))
 
 	r.Handle("/", staticC.Home).Methods("GET")
 	r.Handle("/contact", staticC.Contact).Methods("GET")
@@ -114,14 +120,14 @@ func main() {
 	r.HandleFunc("/galleries", createGallery).Methods("POST")
 
 	indexGallery := requireUserMw.ApplyFn(gallC.Index)
-	r.HandleFunc("/galleries", indexGallery).Methods("GET")
+	r.HandleFunc("/galleries", indexGallery).Methods("GET").Name(controllers.IndexGallery)
 
 	//lets also name this route just for sake of convinience.
 	r.HandleFunc("/galleries/{id:[0-9]+}", gallC.Show).Methods("GET").Name(controllers.ShowGallery)
 
 	//lets add a middle ware to the edit gallery page
 	editGallery := requireUserMw.ApplyFn(gallC.Edit)
-	r.HandleFunc("/galleries/{id:[0-9]+}/edit", editGallery).Methods("GET")
+	r.HandleFunc("/galleries/{id:[0-9]+}/edit", editGallery).Methods("GET").Name(controllers.EditGallery)
 
 	updateGallery := requireUserMw.ApplyFn(gallC.Update)
 	r.HandleFunc("/galleries/{id:[0-9]+}/update", updateGallery).Methods("POST")
@@ -135,5 +141,7 @@ func main() {
 	//json return end point
 	r.HandleFunc("/jsonresponse", userC.JsonResponse).Methods("GET")
 
-	log.Fatal(http.ListenAndServe(":3000", r))
+	//This line is needed to keep this server running for good and needs to be
+	//added on the end only.
+	http.ListenAndServe(":3000", userMw.Apply(r))
 }

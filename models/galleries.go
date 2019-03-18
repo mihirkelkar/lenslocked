@@ -89,7 +89,7 @@ func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
 //ByUserID : Finds all galleries associated with a userId
 func (gg *galleryGorm) ByUserID(id uint) ([]Gallery, error) {
 	var galleries []Gallery
-	err := gg.db.Where("id = ?", id).Find(&galleries).Error
+	err := gg.db.Where("user_id = ?", id).Find(&galleries).Error
 	switch err {
 	case nil:
 		return galleries, err

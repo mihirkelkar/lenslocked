@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -12,7 +12,9 @@ import (
 )
 
 const (
-	ShowGallery = "show_gallery"
+	ShowGallery  = "show_gallery"
+	IndexGallery = "index_gallery"
+	EditGallery  = "edit_gallery"
 )
 
 //Galleries :  struct that represents a view of type gallery
@@ -55,7 +57,7 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 		//set the error here to display.
 		vd.SetAlert(err)
 		//display error
-		g.NewView.Render(w, vd)
+		g.NewView.Render(w, r, vd)
 		return
 	}
 	//Need to look up the user from the context and actually set the ID here.
@@ -66,10 +68,10 @@ func (g *Galleries) Create(w http.ResponseWriter, r *http.Request) {
 	//call a create function on the Gallery Service.
 	if err := g.gs.Create(&gallery); err != nil {
 		vd.SetAlert(err)
-		g.NewView.Render(w, vd)
+		g.NewView.Render(w, r, vd)
 		return
 	}
-	url, err := g.r.Get(ShowGallery).URL("id", strconv.Itoa(int(gallery.ID)))
+	url, err := g.r.Get(EditGallery).URL("id", strconv.Itoa(int(gallery.ID)))
 	//If there are errors in the url, then just redirect to a page.
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -87,11 +89,11 @@ func (g *Galleries) Show(w http.ResponseWriter, r *http.Request) {
 	var vd views.Data
 	if err != nil {
 		vd.SetAlert(err)
-		g.NewView.Render(w, vd)
+		g.NewView.Render(w, r, vd)
 		return
 	}
 	vd.Yield = gallery
-	g.ShowView.Render(w, vd)
+	g.ShowView.Render(w, r, vd)
 }
 
 func (g *Galleries) galleriesByID(w http.ResponseWriter, r *http.Request) (*models.Gallery, error) {
@@ -114,17 +116,20 @@ func (g *Galleries) Edit(w http.ResponseWriter, r *http.Request) {
 	gallery, err := g.galleriesByID(w, r)
 	if err != nil {
 		vd.SetAlert(err)
-		g.EditView.Render(w, vd)
+		g.EditView.Render(w, r, vd)
 	}
 
 	//get user from User Context
 	user := context.User(r.Context())
 	if user.ID != gallery.UserID {
-		http.Error(w, "You're not authoized to edit this gallery", http.StatusForbidden)
+		var vd views.Data
+		vd.SetAlert(errors.New("You are not authorized to edit this gallery"))
+		vd.Alert.Level = views.AlertLevelError
+		g.IndexView.Render(w, r, vd)
 		return
 	}
 	vd.Yield = gallery
-	g.EditView.Render(w, vd)
+	g.EditView.Render(w, r, vd)
 
 }
 
@@ -146,14 +151,14 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 	var form GalleryForm
 	if err = ParseForm(r, &form); err != nil {
 		vd.SetAlert(err)
-		g.EditView.Render(w, vd)
+		g.EditView.Render(w, r, vd)
 		return
 	}
 
 	gallery.Title = form.Title
 	if err := g.gs.Update(gallery); err != nil {
 		vd.SetAlert(err)
-		g.EditView.Render(w, vd)
+		g.EditView.Render(w, r, vd)
 		return
 	}
 	vd.Alert = &views.Alert{
@@ -161,7 +166,7 @@ func (g *Galleries) Update(w http.ResponseWriter, r *http.Request) {
 		Message: "Gallery updated successfully!",
 	}
 	vd.Yield = gallery
-	g.ShowView.Render(w, vd)
+	g.ShowView.Render(w, r, vd)
 	return
 }
 
@@ -184,11 +189,16 @@ func (g *Galleries) Delete(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		vd.SetAlert(err)
 		vd.Yield = gallery
-		g.EditView.Render(w, vd)
+		g.EditView.Render(w, r, vd)
 		return
 	}
 
-	fmt.Fprintln(w, "successfully deleted!")
+	url, err := g.r.Get(IndexGallery).URL()
+	if err != nil {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, url.Path, http.StatusFound)
 }
 
 //GET /galleries
@@ -202,6 +212,6 @@ func (g *Galleries) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	vd.Yield = galleries
-	g.IndexView.Render(w, vd)
+	g.IndexView.Render(w, r, vd)
 	return
 }

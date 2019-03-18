@@ -1,11 +1,53 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/mihirkelkar/lenslocked.com/context"
 	"github.com/mihirkelkar/lenslocked.com/models"
 )
+
+// User middleware will lookup the current user via their
+// remember_token cookie using the UserService. If the user
+// is found, they will be set on the request context.
+// Regardless, the next handler is always called.
+// This User middle ware is a soft version of the middleware.
+
+type UserMWare struct {
+	models.UserService
+}
+
+//ApplyFn : will return a http.HandlerFunc that will
+//check to see if a user is logged in and then
+//will call the next hander regardless.
+func (mw *UserMWare) Apply(next http.Handler) http.HandlerFunc {
+	return mw.ApplyFn(next.ServeHTTP)
+}
+
+func (mw *UserMWare) ApplyFn(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("remember_token")
+		if err != nil {
+			next(w, r)
+			return
+		}
+		user, err := mw.UserService.ByRememberHash(cookie.Value)
+		if err != nil {
+			next(w, r)
+			return
+		}
+		fmt.Println("Setting Context from Middleware")
+		ctx := r.Context()
+		ctx = context.WithUser(ctx, user)
+		r = r.WithContext(ctx)
+		next(w, r)
+	})
+}
+
+//RequireUser : This is the hard middleware that requires users to sign in.
+//This middleware is now redirecting users to the login page if we find a user
+//that is not signed in.
 
 type RequireUser struct {
 	models.UserService
