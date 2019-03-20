@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/mihirkelkar/lenslocked.com/context"
 	"github.com/mihirkelkar/lenslocked.com/models"
 	"github.com/mihirkelkar/lenslocked.com/views"
 )
 
 //Users struct
 type Users struct {
-	NewView   *views.View
-	LoginView *views.View
-	us        models.UserService
+	NewView    *views.View
+	LoginView  *views.View
+	LogoutView *views.View
+	us         models.UserService
 }
 
 type SignUpForm struct {
@@ -31,9 +33,10 @@ type LoginForm struct {
 //NewUsers Creates a new user that has its NewView set to the sign-up page
 func NewUsers(us models.UserService) *Users {
 	return &Users{
-		NewView:   views.NewView("bootstrap", "views/users/new.gohtml"),
-		LoginView: views.NewView("bootstrap", "views/users/login.gohtml"),
-		us:        us,
+		NewView:    views.NewView("bootstrap", "views/users/new.gohtml"),
+		LoginView:  views.NewView("bootstrap", "views/users/login.gohtml"),
+		LogoutView: views.NewView("bootstrap", "views/users/logoutconfirm.gohtml"),
+		us:         us,
 	}
 }
 
@@ -43,12 +46,18 @@ func NewUsers(us models.UserService) *Users {
 // the serveHTTP function can so can be served directly.
 // This is an alternate way of doing things.
 func (u *Users) New(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "text/html")
+	//check if the user is logged in already. If so re-direct to the
+	//logout confirmation page and force logout before new signup
+	if context.User(r.Context()) != nil {
+		http.Redirect(w, r, "/logout", http.StatusFound)
+		return
+	}
 	u.NewView.Render(w, r, nil)
 }
 
 //POST /signup
 func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
+
 	var vd views.Data
 	form := SignUpForm{}
 	//this method is present in the helpers.go file
@@ -93,6 +102,18 @@ func (u *Users) Create(w http.ResponseWriter, r *http.Request) {
 	// Redirect to the cookie test page to test the cookie
 	http.Redirect(w, r, "/galleries", http.StatusFound)
 
+}
+
+//LoginGet /GET login
+func (u *Users) LoginGet(w http.ResponseWriter, r *http.Request) {
+	//check if there is a user already logged in and re-direct them to the logout
+	//confirmation page.
+	if context.User(r.Context()) != nil {
+		http.Redirect(w, r, "/logout", http.StatusFound)
+		return
+	}
+	u.LoginView.Render(w, r, nil)
+	return
 }
 
 //POST /login
@@ -176,4 +197,28 @@ func (u *Users) JsonResponse(w http.ResponseWriter, r *http.Request) {
 		Message: "This is a JSON test"}
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(data)
+}
+
+//LogoutGet : Shows the User a Logout Confirmation Page.
+func (u *Users) LogoutGet(w http.ResponseWriter, r *http.Request) {
+	user := context.User(r.Context())
+	var vd views.Data
+	vd.Yield = user
+	u.LogoutView.Render(w, r, vd)
+	return
+}
+
+func (u *Users) Logout(w http.ResponseWriter, r *http.Request) {
+	//clear out the cookies.
+	cookie := http.Cookie{
+		Name:  "remember_token",
+		Value: "",
+		//Set HttpOnly to stop cross site scripting
+		HttpOnly: true,
+	}
+	http.SetCookie(w, &cookie)
+	//clear out the contenxt.
+	context.WithUser(r.Context(), nil)
+	//Re-direct to login page
+	http.Redirect(w, r, "/login", http.StatusFound)
 }

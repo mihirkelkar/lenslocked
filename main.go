@@ -91,9 +91,8 @@ func main() {
 		UserService: services.UserService,
 	}
 
-	//start the soft middleware on all routes
-	//http.ListenAndServe(":3000", userMw.Apply(r))
-
+	//Notice that we are using the Handle function here and
+	//rendering these Templates as a static template
 	r.Handle("/", staticC.Home).Methods("GET")
 	r.Handle("/contact", staticC.Contact).Methods("GET")
 	r.Handle("/faq", staticC.Faq).Methods("GET")
@@ -102,9 +101,7 @@ func main() {
 	// and the actual handler function to the user conroller. Nothing fancy
 	r.HandleFunc("/signup", userC.New).Methods("GET")
 
-	//Notice that we are using the Handle function here and
-	//rendering the LoginView Template as a static template
-	r.Handle("/login", userC.LoginView).Methods("GET")
+	r.HandleFunc("/login", userC.LoginGet).Methods("GET")
 	r.HandleFunc("/login", userC.Login).Methods("POST")
 
 	// gallC.New is an http.Handler, so we use Apply
@@ -129,6 +126,10 @@ func main() {
 	editGallery := requireUserMw.ApplyFn(gallC.Edit)
 	r.HandleFunc("/galleries/{id:[0-9]+}/edit", editGallery).Methods("GET").Name(controllers.EditGallery)
 
+	//lets users upload images to a gallery
+	imageUpload := requireUserMw.ApplyFn(gallC.ImageUpload)
+	r.HandleFunc("/galleries/{id:[0-9]+}/images", imageUpload).Methods("POST").Name(controllers.ImageUpload)
+
 	updateGallery := requireUserMw.ApplyFn(gallC.Update)
 	r.HandleFunc("/galleries/{id:[0-9]+}/update", updateGallery).Methods("POST")
 
@@ -136,6 +137,9 @@ func main() {
 	r.HandleFunc("/galleries/{id:[0-9]+}/delete", deleteGallery).Methods("POST")
 
 	r.HandleFunc("/signup", userC.Create).Methods("POST")
+
+	r.HandleFunc("/logout", userC.LogoutGet).Methods("GET")
+	r.HandleFunc("/logout", userC.Logout).Methods("POST")
 	//test cookie function.
 	r.HandleFunc("/testcookie", userC.TestCookie).Methods("GET")
 	//json return end point

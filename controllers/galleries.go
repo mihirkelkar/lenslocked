@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	ShowGallery  = "show_gallery"
-	IndexGallery = "index_gallery"
-	EditGallery  = "edit_gallery"
+	ShowGallery     = "show_gallery"
+	IndexGallery    = "index_gallery"
+	EditGallery     = "edit_gallery"
+	ImageUpload     = "image_upload"
+	maxMultipartMem = 1 << 20 //a left shit once double the number. 20 times is basically 2^20 so 1MB.
 )
 
 //Galleries :  struct that represents a view of type gallery
@@ -214,4 +216,28 @@ func (g *Galleries) Index(w http.ResponseWriter, r *http.Request) {
 	vd.Yield = galleries
 	g.IndexView.Render(w, r, vd)
 	return
+}
+
+//POST /galleries/:id/images
+func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
+	//get the gallery using the ID from the URL.
+	gallery, err := g.galleriesByID(w, r)
+	if err != nil {
+		return
+	}
+	//check if the user from the request contenxt has the authorization to upload images.
+	user := context.User(r.Context())
+	if gallery.UserID != user.ID {
+		http.Error(w, "Gallery Not Found", http.StatusNotFound)
+		return
+	}
+
+	var vd views.Data
+	vd.Yield = gallery
+	err = r.ParseMultipartForm(maxMultipartMem)
+	if err != nil {
+		vd.SetAlert(err)
+		g.EditView.Render(w, r, vd)
+		return
+	}
 }
