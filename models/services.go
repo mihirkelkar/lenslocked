@@ -17,6 +17,7 @@ and then instantiates all models here
 type Services struct {
 	UserService    UserService
 	GalleryService GalleryService
+	ImageService   ImageService
 	db             *gorm.DB
 }
 
@@ -36,9 +37,16 @@ func NewServices(connectionInfo string) (*Services, error) {
 	if errGall != nil {
 		return nil, errGall
 	}
+
+	imageService, errImg := NewImageService()
+	if errImg != nil {
+		return nil, errImg
+	}
+
 	return &Services{
 		UserService:    userService,
 		GalleryService: galleryService,
+		ImageService:   imageService,
 		db:             db,
 	}, nil
 }

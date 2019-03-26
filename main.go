@@ -81,7 +81,7 @@ func main() {
 
 	//We pass the user service (relatd to the model) to the user controller
 	var userC = controllers.NewUsers(services.UserService)
-	var gallC = controllers.NewGallery(services.GalleryService, r)
+	var gallC = controllers.NewGallery(services.GalleryService, services.ImageService, r)
 
 	userMw := middleware.UserMWare{
 		UserService: services.UserService,

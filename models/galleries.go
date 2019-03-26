@@ -4,8 +4,9 @@ import "github.com/jinzhu/gorm"
 
 type Gallery struct {
 	gorm.Model
-	UserID uint   `gorm:"not_null;index"`
-	Title  string `gorm:"not_null"`
+	UserID uint     `gorm:"not_null;index"`
+	Title  string   `gorm:"not_null"`
+	Images []string `gorm:"-"`
 }
 
 var (
@@ -89,7 +90,7 @@ func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
 //ByUserID : Finds all galleries associated with a userId
 func (gg *galleryGorm) ByUserID(id uint) ([]Gallery, error) {
 	var galleries []Gallery
-	err := gg.db.Where("user_id = ?", id).Find(&galleries).Error
+	err := gg.db.Where("UserID = ?", id).Find(&galleries).Error
 	switch err {
 	case nil:
 		return galleries, err

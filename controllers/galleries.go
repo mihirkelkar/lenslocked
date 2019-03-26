@@ -26,6 +26,7 @@ type Galleries struct {
 	EditView  *views.View
 	IndexView *views.View
 	gs        models.GalleryService
+	is        models.ImageService
 	r         *mux.Router
 }
 
@@ -34,13 +35,14 @@ type GalleryForm struct {
 }
 
 //NewGallery : Creates a new struct of type gallery
-func NewGallery(gs models.GalleryService, r *mux.Router) *Galleries {
+func NewGallery(gs models.GalleryService, is models.ImageService, r *mux.Router) *Galleries {
 	return &Galleries{
 		NewView:   views.NewView("bootstrap", "views/galleries/new.gohtml"),
 		ShowView:  views.NewView("bootstrap", "views/galleries/show.gohtml"),
 		EditView:  views.NewView("bootstrap", "views/galleries/edit.gohtml"),
 		IndexView: views.NewView("bootstrap", "views/galleries/index.gohtml"),
 		gs:        gs,
+		is:        is,
 		r:         r,
 	}
 }
@@ -110,6 +112,10 @@ func (g *Galleries) galleriesByID(w http.ResponseWriter, r *http.Request) (*mode
 	if err != nil {
 		return nil, err
 	}
+
+	//get all the filepaths of images associated with galleries and assign them
+	images, _ := g.is.ByGalleryID(uint(id))
+	gallery.Images = images
 	return gallery, nil
 }
 
@@ -240,4 +246,33 @@ func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
 		g.EditView.Render(w, r, vd)
 		return
 	}
+	//uses the id tag from the input html form that uploads the image.
+	//this html page is in views/galleries/edit.gothml
+	//r.MultipartForm here is an object of type multipart.Form
+	//Form : this data structure holds the multi-part upload images.
+	// Value field is a map where a string is a key and its value is list of strings.
+	// File field is  a map where a string is a key and a list of fileheaders are values
+	//pointers is the value. Here we're accessing the images key of the File field
+	//of the Form object. This return a list of fileheaders as files.
+	files := r.MultipartForm.File["images"]
+	for _, f := range files {
+		file, err := f.Open()
+		if err != nil {
+			vd.SetAlert(err)
+			g.EditView.Render(w, r, vd)
+			return
+		}
+		defer file.Close()
+		err = g.is.Create(gallery.ID, file, f.Filename)
+		if err != nil {
+			vd.SetAlert(err)
+			g.EditView.Render(w, r, vd)
+			return
+		}
+	}
+	vd.Alert = &views.Alert{
+		Level:   views.AlertLevelSuccess,
+		Message: "Images successfully uploaded!",
+	}
+	g.EditView.Render(w, r, vd)
 }
