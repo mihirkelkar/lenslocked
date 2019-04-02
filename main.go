@@ -104,6 +104,16 @@ func main() {
 	r.HandleFunc("/login", userC.LoginGet).Methods("GET")
 	r.HandleFunc("/login", userC.Login).Methods("POST")
 
+	//Image Handler.
+	//We use this to serve static images on web pags.
+	imageHandler := http.FileServer(http.Dir("./images/"))
+	withoutHeader := http.StripPrefix("/images/", imageHandler)
+	r.PathPrefix("/images/").Handler(withoutHeader)
+
+	r.HandleFunc("/galleries/{id:[0-9]+}/images/{filename}/delete",
+		requireUserMw.ApplyFn(gallC.ImageDelete)).
+		Methods("POST")
+
 	// gallC.New is an http.Handler, so we use Apply
 	//the template for new galleries is served directly
 	//since we have implemented serveHTTP for templates

@@ -4,9 +4,9 @@ import "github.com/jinzhu/gorm"
 
 type Gallery struct {
 	gorm.Model
-	UserID uint     `gorm:"not_null;index"`
-	Title  string   `gorm:"not_null"`
-	Images []string `gorm:"-"`
+	UserID uint    `gorm:"not_null;index"`
+	Title  string  `gorm:"not_null"`
+	Images []Image `gorm:"-"`
 }
 
 var (
@@ -90,7 +90,7 @@ func (gg *galleryGorm) ByID(id uint) (*Gallery, error) {
 //ByUserID : Finds all galleries associated with a userId
 func (gg *galleryGorm) ByUserID(id uint) ([]Gallery, error) {
 	var galleries []Gallery
-	err := gg.db.Where("UserID = ?", id).Find(&galleries).Error
+	err := gg.db.Where("user_id= ?", id).Find(&galleries).Error
 	switch err {
 	case nil:
 		return galleries, err
@@ -169,4 +169,20 @@ func (gv *galleryValidator) Delete(gallery *Gallery) error {
 		return err
 	}
 	return gv.GalleryDB.Delete(gallery)
+}
+
+//adds the images to several differnt columns to be displayed
+func (g *Gallery) ImagesSplitN(n int) [][]Image {
+	ret := make([][]Image, n)
+	//make inner slices of length 0
+	for i := 0; i < n; i++ {
+		ret[i] = make([]Image, 0)
+	}
+
+	for i, img := range g.Images {
+		bucket := i % n
+		ret[bucket] = append(ret[bucket], img)
+	}
+	//return a list of list of images
+	return ret
 }

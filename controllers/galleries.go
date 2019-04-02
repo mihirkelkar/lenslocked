@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -275,4 +276,42 @@ func (g *Galleries) ImageUpload(w http.ResponseWriter, r *http.Request) {
 		Message: "Images successfully uploaded!",
 	}
 	g.EditView.Render(w, r, vd)
+}
+
+func (g *Galleries) ImageDelete(w http.ResponseWriter, r *http.Request) {
+	//get the gallery based on the galleryID
+	gallery, err := g.galleriesByID(w, r)
+	if err != nil {
+		return
+	}
+
+	//check if the user has the authorization to delete this gallery
+	user := context.User(r.Context())
+	if gallery.UserID != user.ID {
+		http.Error(w, "You are not authorized", http.StatusNotFound)
+		return
+	}
+
+	//if this goes well, the get the filename from the url.
+	filename := mux.Vars(r)["filename"]
+	img := models.Image{
+		GalleryID: int(gallery.ID),
+		Filename:  filename,
+	}
+
+	err = g.is.Delete(&img)
+	if err != nil {
+		var vd views.Data
+		vd.SetAlert(err)
+		g.EditView.Render(w, r, vd)
+		return
+	}
+
+	//if there is no error, go ahead and render the edit view with a success
+	//alert.
+	url, err := g.r.Get(EditGallery).URL("id", fmt.Sprintf("%v", gallery.ID))
+	if err != nil {
+		http.Redirect(w, r, "/galleries", http.StatusFound)
+	}
+	http.Redirect(w, r, url.Path, http.StatusFound)
 }
